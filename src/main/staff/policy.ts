@@ -132,6 +132,8 @@ export const TABLE_RULES: ReadonlyArray<[string, Rule]> = [
   ['event_ticket_quota', child('deal_memo', 'deal_memo_id')],
   ['ticket_report', child('deal_memo', 'deal_memo_id')],
   ['external_booking', bandWork],
+  // #53: a subscribed calendar may be someone's private one (Google's secret address): own only
+  ['calendar_subscription', { kind: 'custom', visible: (row, l) => l.own(row.id) }],
   ['marketing_atlas', bandWork],
   ['marketing_item', bandWork],
   // money and management: only with a grant (or own)

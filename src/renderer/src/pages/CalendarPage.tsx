@@ -25,6 +25,8 @@ import { AppointmentDialog } from '@/components/appointments/AppointmentDialog'
 import { AppointmentList } from '@/components/appointments/AppointmentList'
 import { appointmentsByDay } from '@/components/appointments/appointmentDays'
 import { AgencyBookingList } from '@/components/agency/AgencyBookingList'
+import { SubscribedEntryList } from '@/components/calendar/SubscribedEntryList'
+import { subscribedByDay } from '@/components/calendar/subscribedDays'
 import { cn } from '@/lib/utils'
 import { trpcReact } from '@/lib/trpc'
 import type { FollowUpDto } from '../../../main/api/schemas/followUp.schema'
@@ -175,6 +177,17 @@ export default function CalendarPage() {
     return byDay
   }, [agencyData])
 
+  // #53: entries of subscribed calendars (read-only); refreshed in the background every half
+  // hour, so the page asks again now and then
+  const subscribed = trpcReact.calendar.subscribedBetween.useQuery(appointmentRange, {
+    keepPreviousData: true,
+    refetchInterval: 2 * 60_000
+  })
+  const subscribedOnDay = useMemo(
+    () => subscribedByDay(subscribed.data ?? [], appointmentRange.from, appointmentRange.to),
+    [subscribed.data, appointmentRange]
+  )
+
   const groupedAgenda = useMemo(() => {
     const groups = new Map<string, typeof filteredEvents>()
 
@@ -187,7 +200,8 @@ export default function CalendarPage() {
     for (const dayKey of [
       ...followUpsByDay.keys(),
       ...appointmentsOnDay.keys(),
-      ...agencyOnDay.keys()
+      ...agencyOnDay.keys(),
+      ...subscribedOnDay.keys()
     ]) {
       if (dayKey >= range.start && dayKey <= range.end && !groups.has(dayKey)) {
         groups.set(dayKey, [])
@@ -202,9 +216,10 @@ export default function CalendarPage() {
         items: dayEvents.sort((a, b) => compareAsc(a.parsedDate, b.parsedDate)),
         followUps: followUpsByDay.get(dayKey) ?? [],
         appointments: appointmentsOnDay.get(dayKey) ?? [],
-        agency: agencyOnDay.get(dayKey) ?? []
+        agency: agencyOnDay.get(dayKey) ?? [],
+        subscribed: subscribedOnDay.get(dayKey) ?? []
       }))
-  }, [filteredEvents, followUpsByDay, appointmentsOnDay, agencyOnDay, range])
+  }, [filteredEvents, followUpsByDay, appointmentsOnDay, agencyOnDay, subscribedOnDay, range])
 
   const highlightedDates = useMemo(() => {
     return new Set(eventsWithParsedDate.map((event) => format(event.parsedDate, 'yyyy-MM-dd')))
@@ -214,6 +229,7 @@ export default function CalendarPage() {
   const selectedDayFollowUps = followUpsByDay.get(selectedKey) ?? []
   const selectedDayAppointments = appointmentsOnDay.get(selectedKey) ?? []
   const selectedDayAgency = agencyOnDay.get(selectedKey) ?? []
+  const selectedDaySubscribed = subscribedOnDay.get(selectedKey) ?? []
   const openEvent = (id: number) =>
     navigate({ to: '/events/$eventId', params: { eventId: String(id) } })
 
@@ -258,7 +274,8 @@ export default function CalendarPage() {
                 hasEvent: (date) => highlightedDates.has(format(date, 'yyyy-MM-dd')),
                 hasFollowUp: (date) => followUpsByDay.has(format(date, 'yyyy-MM-dd')),
                 hasAppointment: (date) => appointmentsOnDay.has(format(date, 'yyyy-MM-dd')),
-                hasAgencyBooking: (date) => agencyOnDay.has(format(date, 'yyyy-MM-dd'))
+                hasAgencyBooking: (date) => agencyOnDay.has(format(date, 'yyyy-MM-dd')),
+                hasSubscribed: (date) => subscribedOnDay.has(format(date, 'yyyy-MM-dd'))
               }}
               modifiersClassNames={{
                 hasEvent:
@@ -270,7 +287,9 @@ export default function CalendarPage() {
                 hasAppointment:
                   'relative before:pointer-events-none before:absolute before:left-1.5 before:top-1.5 before:size-1.5 before:rounded-full before:bg-sky-500',
                 // #103: a teal frame: another agency booked one of the bands that day
-                hasAgencyBooking: 'rounded-md ring-2 ring-inset ring-teal-500/70'
+                hasAgencyBooking: 'rounded-md ring-2 ring-inset ring-teal-500/70',
+                // #53: a violet line along the bottom: something in a subscribed calendar
+                hasSubscribed: 'shadow-[inset_0_-3px_0_0_rgb(139_92_246_/_0.55)]'
               }}
             />
 
@@ -322,6 +341,17 @@ export default function CalendarPage() {
                     {t('Agenturbuchungen')}
                   </h3>
                   <AgencyBookingList bookings={selectedDayAgency} />
+                </section>
+              )}
+              {selectedDaySubscribed.length > 0 && (
+                <section
+                  aria-label={t('Abonnierte Kalender an diesem Tag')}
+                  className="space-y-2 pt-1"
+                >
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {t('Abonnierte Kalender')}
+                  </h3>
+                  <SubscribedEntryList entries={selectedDaySubscribed} day={selectedKey} />
                 </section>
               )}
               {selectedDayAppointments.length > 0 && (
@@ -430,6 +460,11 @@ export default function CalendarPage() {
                         {group.appointments.length > 0 && (
                           <div className="rounded-lg border border-sky-200 bg-sky-50/60 px-4 py-3 dark:border-sky-900/60 dark:bg-sky-950/20">
                             <AppointmentList appointments={group.appointments} day={group.dayKey} />
+                          </div>
+                        )}
+                        {group.subscribed.length > 0 && (
+                          <div className="rounded-lg border border-violet-200 bg-violet-50/50 px-4 py-3 dark:border-violet-900/60 dark:bg-violet-950/20">
+                            <SubscribedEntryList entries={group.subscribed} day={group.dayKey} />
                           </div>
                         )}
                         {group.followUps.length > 0 && (

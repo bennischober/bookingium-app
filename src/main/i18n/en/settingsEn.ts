@@ -417,5 +417,57 @@ export const settingsEn: Record<string, string> = {
   Einschalten: 'Switch on',
   'Bitte eine PIN eingeben.': 'Please enter a PIN.',
   'Die PIN besteht aus 4 bis 12 Ziffern.': 'The PIN consists of 4 to 12 digits.',
-  'Die beiden PINs stimmen nicht überein.': 'The two PINs do not match.'
+  'Die beiden PINs stimmen nicht überein.': 'The two PINs do not match.',
+  // #53: calendar subscriptions
+  ganztägig: 'all day',
+  'ab {{time}}': 'from {{time}}',
+  'bis {{time}}': 'until {{time}}',
+  'Abonnierte Kalender': 'Subscribed calendars',
+  'Abonnierte Kalender an diesem Tag': 'Subscribed calendars on this day',
+  '(ohne Titel)': '(no title)',
+  'Adresse kopiert': 'Address copied',
+  'Link konnte nicht geprüft werden': 'Link could not be checked',
+  'In Outlook, Google oder Apple abonnieren': 'Subscribe in Outlook, Google or Apple',
+  'Kalender-Apps holen ein Abo über eine Web-Adresse. Die Datei dafür in einem OneDrive- oder Dropbox-Ordner speichern, dort „Teilen“ → „Jeder mit dem Link“ wählen und den Link hier einfügen. Bookingium macht daraus die Abo-Adresse und prüft, ob die Datei darüber erreichbar ist.':
+    'Calendar apps fetch a subscription from a web address. Save the file in a OneDrive or Dropbox folder, choose “Share” → “Anyone with the link” there and paste the link here. Bookingium turns it into the subscription address and checks that the file can be reached through it.',
+  'Die Datei liegt in keinem OneDrive-, Google-Drive- oder Dropbox-Ordner dieses Computers. Mit „Andere Datei…“ dorthin verlegen, sonst gibt es keinen Link zum Teilen.':
+    'The file is not in a OneDrive, Google Drive or Dropbox folder of this computer. Move it there with “Other file…”, otherwise there is no link to share.',
+  'Freigabe-Link der Datei': 'Share link of the file',
+  Prüfen: 'Check',
+  'Erreichbar: Bookingium-Kalender mit {{events}} Einträgen, Stand {{written}}.':
+    'Reachable: Bookingium calendar with {{events}} entries, as of {{written}}.',
+  unbekannt: 'unknown',
+  'Die Cloud hat noch einen älteren Stand – nach dem Hochladen erneut prüfen.':
+    'The cloud still has an older version – check again after the upload.',
+  'Abo-Adresse': 'Subscription address',
+  'Google Kalender (im Browser): „Weitere Kalender“ → „+“ → „Per URL“ → Adresse einfügen. Google lädt Abos nur alle paar Stunden neu.':
+    'Google Calendar (in the browser): “Other calendars” → “+” → “From URL” → paste the address. Google reloads subscriptions only every few hours.',
+  'Outlook: „Kalender hinzufügen“ → „Aus dem Internet abonnieren“ → Adresse einfügen.':
+    'Outlook: “Add calendar” → “Subscribe from web” → paste the address.',
+  'Apple Kalender (Mac, iPhone): „Ablage“ → „Neues Kalenderabonnement“ bzw. Einstellungen → Kalender → Accounts → „Abonnierten Kalender hinzufügen“.':
+    'Apple Calendar (Mac, iPhone): “File” → “New Calendar Subscription”, or Settings → Calendar → Accounts → “Add Subscribed Calendar”.',
+  'Wer die Adresse kennt, sieht auch die Wiedervorlagen bzw. eigenen Termine, die in der Datei stehen.':
+    'Anyone who knows the address also sees the follow-ups or own appointments in the file.',
+  'Abo entfernt': 'Subscription removed',
+  'Kalender konnte nicht geladen werden': 'Calendar could not be loaded',
+  'Kalender aktualisiert': 'Calendar updated',
+  'Im Kalender zeigen': 'Show in calendar',
+  'Name des Abos': 'Name of the subscription',
+  Farbe: 'Color',
+  'Abo entfernen': 'Remove subscription',
+  'Zuletzt geladen {{time}} · {{count}} Einträge': 'Last loaded {{time}} · {{count}} entries',
+  'Noch nicht geladen.': 'Not loaded yet.',
+  '„{{name}}“ abonniert': 'Subscribed to “{{name}}”',
+  'Kalender konnte nicht abonniert werden': 'Calendar could not be subscribed to',
+  'Andere Kalender im Bookingium-Kalender zeigen, nur zum Ansehen. Bookingium lädt sie beim Start und jede halbe Stunde neu.':
+    'Show other calendars in the Bookingium calendar, read-only. Bookingium reloads them on start and every half hour.',
+  'Adresse des Kalenders (ICS)': 'Address of the calendar (ICS)',
+  Abonnieren: 'Subscribe',
+  'Noch keine Kalender abonniert.': 'No calendars subscribed yet.',
+  'Google Kalender: Einstellungen des Kalenders → „Kalender integrieren“ → „Privatadresse im iCal-Format“.':
+    'Google Calendar: the calendar’s settings → “Integrate calendar” → “Secret address in iCal format”.',
+  'iCloud: in der Kalender-App beim Kalender „Teilen“ → „Öffentlicher Kalender“ → Link kopieren (webcal://…).':
+    'iCloud: in the Calendar app, “Share” on the calendar → “Public Calendar” → copy the link (webcal://…).',
+  'Outlook: Einstellungen → Kalender → „Freigegebene Kalender“ → „Kalender veröffentlichen“ → ICS-Link.':
+    'Outlook: Settings → Calendar → “Shared calendars” → “Publish a calendar” → ICS link.'
 }

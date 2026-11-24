@@ -1013,6 +1013,37 @@ is on (`appointment`, `appointment` router, `AppointmentService`).
   updates it. A cancellation leaves an imported appointment alone.
 - **Not yet:** recurring appointments.
 
+### Subscribed calendars and the public address (#53)
+
+- **Other calendars in Bookingium:** "Einstellungen › Kalender › Abonnierte
+  Kalender" takes an ICS address (https or webcal: Google's secret iCal
+  address, an iCloud public calendar, an Outlook published calendar).
+  `calendar_subscription` (name, url, color, enabled) is synced; what was
+  fetched lives in `calendar_subscription_cache` (in `LOCAL_TABLES`), so each
+  computer fetches for itself and keeps the last good feed offline.
+  `CalendarSubscriptionService` (singleton) fetches on start, every 30
+  minutes and on demand through `FeedFetcher` (tests swap its `fetch`); a
+  subscription that arrived through sync is fetched the first time the
+  calendar asks. Adding fetches first and refuses an address that is not a
+  calendar. The pure `calendar/subscribed.ts` parses with `ical.js` and
+  expands a range (`entriesBetween`): RRULE/RDATE minus EXDATE, moved or
+  changed occurrences (RECURRENCE-ID), times converted to the system zone
+  (VTIMEZONE in the feed, else `resolveZone` as for invitations), floating
+  times as written, all-day DTEND exclusive. The calendar page shows the
+  entries read-only (violet line on the day, own section in the agenda and
+  the day panel); they never go into Bookingium's own file.
+- **Bookingium in other apps:** calendar apps fetch subscriptions from
+  their own servers (Google, Outlook.com) or the device, so the file needs a
+  public web address; a local HTTP server would only reach this computer,
+  and there is no Bookingium cloud. The file goes into a OneDrive or Dropbox
+  folder and is shared "anyone with the link"; `calendar/shareLink.ts` turns
+  the share link into the direct download address (OneDrive personal via the
+  shares API, SharePoint `download=1`, Dropbox `dl=1`, Google Drive
+  `uc?export=download`), and `CalendarFeedService.checkShareLink` fetches it
+  and checks PRODID, entry count and write time (DTSTAMP) against the last
+  write here. The link is kept per computer (`calendarFeedShareUrl`, in
+  `LOCAL_SETTING_KEYS`) and dropped when the file changes.
+
 ## Mail client
 
 An IMAP mail client in `src/main/mailclient/`, always part of the app since

@@ -16,8 +16,26 @@ import {
   type CalendarFollowUp
 } from '../calendar/ics'
 import type { CalendarFeedStatusDto } from '../api/schemas/settings.schema'
+import type { ShareLinkCheckDto } from '../api/schemas/calendar_subscription.schema'
+import { directDownloadUrl, inspectFeedFile } from '../calendar/shareLink'
+import { FeedFetcher } from './FeedFetcher'
+import { cloudRoots } from '../sync/findFolders'
+import { homedir } from 'os'
 
 const UPDATE_DELAY_MS = 1500
+// #53: the shared file may lag behind this computer's last write by this much (cloud upload)
+const STALE_AFTER_MS = 2 * 60_000
+
+/** Whether a file lies in one of the cloud folders (OneDrive, Google Drive, Dropbox) */
+export function isInCloudFolder(path: string, roots: string[]): boolean {
+  const normalize = (p: string) =>
+    p
+      .replace(/[\\/]+/g, '/')
+      .replace(/\/$/, '')
+      .toLowerCase()
+  const file = normalize(path)
+  return roots.some((root) => file.startsWith(`${normalize(root)}/`))
+}
 
 /**
  * Keeps the calendar file chosen in Einstellungen (calendarFeedPath) up to
@@ -39,8 +57,56 @@ export class CalendarFeedService {
   constructor(
     @inject(SettingsService) private settings: SettingsService,
     @inject(FollowUpRepository) private followUpRepository: FollowUpRepository,
-    @inject(AppointmentRepository) private appointmentRepository: AppointmentRepository
+    @inject(AppointmentRepository) private appointmentRepository: AppointmentRepository,
+    @inject(FeedFetcher) private fetcher: FeedFetcher
   ) {}
+
+  /**
+   * #53: fetches the file behind its share link (as the direct download address calendar apps
+   * subscribe to) and checks that it is this calendar, and how current. Keeps the link.
+   */
+  async checkShareLink(link: string): Promise<ShareLinkCheckDto> {
+    const trimmed = link.trim()
+    const direct = directDownloadUrl(trimmed)
+    if (!direct) throw new Error('Keine gültige Adresse (https://…).')
+    this.settings.update({ calendarFeedShareUrl: trimmed })
+    const result: ShareLinkCheckDto = {
+      link: trimmed,
+      subscribeUrl: direct.url,
+      provider: direct.provider,
+      ok: false,
+      events: 0,
+      writtenAt: null,
+      stale: false,
+      error: ''
+    }
+    let text: string
+    try {
+      text = await this.fetcher.text(direct.url)
+    } catch (error) {
+      return { ...result, error: error instanceof Error ? error.message : String(error) }
+    }
+    const info = inspectFeedFile(text)
+    if (!info.isBookingium) {
+      return {
+        ...result,
+        error:
+          'Unter dem Link liegt nicht die Bookingium-Kalender-Datei (z. B. eine Anmelde- oder Vorschauseite). Ist die Datei für alle mit dem Link freigegeben?'
+      }
+    }
+    const stale = Boolean(
+      info.writtenAt &&
+      this.lastWrittenAt &&
+      Date.parse(this.lastWrittenAt) - Date.parse(info.writtenAt) > STALE_AFTER_MS
+    )
+    return { ...result, ok: true, events: info.events, writtenAt: info.writtenAt, stale }
+  }
+
+  /** #53: forgets the share link */
+  clearShareLink(): CalendarFeedStatusDto {
+    this.settings.update({ calendarFeedShareUrl: '' })
+    return this.status()
+  }
 
   async events(): Promise<CalendarEvent[]> {
     const rows = await db
@@ -192,7 +258,14 @@ export class CalendarFeedService {
       followUps: this.lastFollowUpCount,
       includeAppointments: settings.calendarFeedAppointments,
       appointments: this.lastAppointmentCount,
-      error: this.lastError
+      error: this.lastError,
+      shareUrl: settings.calendarFeedShareUrl,
+      subscribeUrl: settings.calendarFeedShareUrl
+        ? (directDownloadUrl(settings.calendarFeedShareUrl)?.url ?? '')
+        : '',
+      inCloudFolder: settings.calendarFeedPath
+        ? isInCloudFolder(settings.calendarFeedPath, cloudRoots(process.env, homedir()))
+        : false
     }
   }
 }

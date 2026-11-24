@@ -81,6 +81,8 @@ export const MERGE_ORDER: readonly string[] = [
   'contact_list_member',
   'follow_up',
   'appointment',
+  // #53: subscribed calendars (their cache stays on each computer)
+  'calendar_subscription',
   'external_booking',
   'mail_template',
   'app_setting',
@@ -243,6 +245,8 @@ export function keyOf(table: string, row: Row): string | null {
         : key(n(row.title), row.start_date, row.start_time)
     case 'external_booking':
       return key(row.agency, row.source_key)
+    case 'calendar_subscription':
+      return key('url', row.url)
     case 'mail_template':
       return row.kind ? key(row.kind, row.lang) : key('name', n(row.name))
     case 'app_setting':

@@ -1409,6 +1409,40 @@ export const external_booking = sqliteTable(
 )
 
 // ========================================
+// #53: subscribed calendars (ICS/webcal), shown read-only in the calendar
+// ========================================
+// The subscription is shared data (synced); what was fetched stays on each computer
+// (calendar_subscription_cache in LOCAL_TABLES): every computer fetches the feed itself.
+
+export const calendar_subscription = sqliteTable('calendar_subscription', {
+  id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+  name: text('name').notNull(),
+  // https URL as entered (webcal:// is turned into https:// when fetching)
+  url: text('url').notNull(),
+  // #rrggbb, how its entries are marked in the calendar
+  color: text('color').notNull().default('#0ea5e9'),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  created_at: text('created_at')
+    .default(sql`(datetime('now'))`)
+    .notNull(),
+  updated_at: text('updated_at')
+    .default(sql`(datetime('now'))`)
+    .notNull()
+})
+
+export const calendar_subscription_cache = sqliteTable('calendar_subscription_cache', {
+  subscription_id: integer('subscription_id')
+    .primaryKey()
+    .references(() => calendar_subscription.id, { onDelete: 'cascade' }),
+  // The last feed fetched successfully, '' before the first
+  ics: text('ics').notNull().default(''),
+  fetched_at: text('fetched_at'),
+  // The last attempt, and its error ('' when it worked)
+  attempted_at: text('attempted_at'),
+  error: text('error').notNull().default('')
+})
+
+// ========================================
 // Management contracts (management company <-> band)
 // ========================================
 // A band can have several over time (renewals with new terms); the newest
@@ -1912,6 +1946,8 @@ export const schema = {
   follow_up,
   appointment,
   external_booking,
+  calendar_subscription,
+  calendar_subscription_cache,
   mail_template,
   mail_rule,
   mail_rule_hit,
