@@ -7,7 +7,7 @@ import type {
   RelatedDocumentDto,
   SetDocumentLinkInput
 } from '../api/schemas/document_link.schema'
-import type { DocumentOwnerType } from '../api/schemas/document.schema'
+import type { DocumentOwnerType, LinkableRecordType } from '../api/schemas/document.schema'
 
 /** Further records a document belongs to, and the documents that concern a record */
 @injectable()
@@ -35,7 +35,7 @@ export class DocumentLinkService {
   }
 
   /** Links several records at once (contract import); unknown ids are skipped */
-  linkAll(documentId: number, targets: Array<{ kind: DocumentOwnerType; id: number }>): void {
+  linkAll(documentId: number, targets: Array<{ kind: LinkableRecordType; id: number }>): void {
     for (const target of targets) {
       if (this.links.labels(target.kind, [target.id]).size === 0) continue
       this.links.setLink(documentId, target.kind, target.id, true)

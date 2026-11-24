@@ -34,7 +34,7 @@ import {
   type MarketingActionScope
 } from '../../../../../main/api/schemas/marketing.schema'
 import { MarketingActionDialog, type MarketingActionPreset } from './MarketingActionDialog'
-import { totalCents } from './marketingFilters'
+import { costTotals } from './marketingFilters'
 import { t } from '../../../../../main/i18n/translate'
 
 const ALL = 'all'
@@ -48,6 +48,15 @@ const STATUS_STYLES: Record<MarketingActionStatus, string> = {
 }
 
 const germanDate = (iso: string): string => iso.split('-').reverse().join('.')
+
+/** "1.200,00 € netto", plus what others pay: "· extern bezahlt 800,00 €" */
+function costText(actions: MarketingActionDto[]): string {
+  const { own, external } = costTotals(actions)
+  const ownText = t('{{value}} netto', { value: formatMoney(fromCents(own), 'EUR') })
+  return external > 0
+    ? `${ownText} · ${t('extern bezahlt {{value}}', { value: formatMoney(fromCents(external), 'EUR') })}`
+    : ownText
+}
 
 function period(action: MarketingActionDto): string {
   if (action.startDate && action.endDate && action.startDate !== action.endDate)
@@ -128,7 +137,7 @@ export function MarketingActions({
         {shown.length > 0 && (
           <span className="ml-auto text-sm text-muted-foreground">
             {shown.length} {shown.length === 1 ? t('Maßnahme') : t('Maßnahmen')} {t('· Kosten')}{' '}
-            {formatMoney(fromCents(totalCents(shown)), 'EUR')} netto
+            {costText(shown)}
           </span>
         )}
       </div>
@@ -146,7 +155,7 @@ export function MarketingActions({
               <h3 className="text-sm font-semibold text-muted-foreground">
                 {group}{' '}
                 <span className="font-normal">
-                  ({entries.length} · {formatMoney(fromCents(totalCents(entries)), 'EUR')})
+                  ({entries.length} · {costText(entries)})
                 </span>
               </h3>
             )}

@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import { trpcReact } from '@/lib/trpc'
 import {
-  DOCUMENT_OWNER_TYPES,
-  type DocumentOwnerType
+  LINKABLE_RECORD_TYPES,
+  type LinkableRecordType
 } from '../../../../main/api/schemas/document.schema'
 import { t } from '../../../../main/i18n/translate'
 
@@ -10,8 +10,8 @@ import { t } from '../../../../main/i18n/translate'
  * The records a mail's attachment can be saved to (F9) and a mail can be linked to by
  * hand ("Zuordnen…"): the same five types, picked by name.
  */
-export type RecordType = DocumentOwnerType
-export const RECORD_TYPES = DOCUMENT_OWNER_TYPES
+export type RecordType = LinkableRecordType
+export const RECORD_TYPES = LINKABLE_RECORD_TYPES
 
 export const RECORD_LABELS: Record<RecordType, string> = {
   event: t('Event'),

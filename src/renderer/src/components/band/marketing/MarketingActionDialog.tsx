@@ -39,7 +39,14 @@ import { t } from '../../../../../main/i18n/translate'
 export type MarketingActionPreset = Partial<
   Pick<
     MarketingActionFields,
-    'kind' | 'title' | 'companyId' | 'marketingItemId' | 'dealMemoId' | 'tour'
+    | 'kind'
+    | 'title'
+    | 'companyId'
+    | 'marketingItemId'
+    | 'dealMemoId'
+    | 'tour'
+    | 'release'
+    | 'releaseId'
   >
 >
 
@@ -50,6 +57,7 @@ type Draft = {
   dealMemoId: number | null
   tour: string
   release: string
+  releaseId: number | null
   companyId: number | null
   marketingItemId: number | null
   startDate: string
@@ -68,7 +76,8 @@ function draftOf(action: MarketingActionDto | null, preset: MarketingActionPrese
     status: action?.status ?? 'planned',
     dealMemoId: action?.dealMemoId ?? preset.dealMemoId ?? null,
     tour: action?.tour ?? preset.tour ?? '',
-    release: action?.release ?? '',
+    release: action?.release ?? preset.release ?? '',
+    releaseId: action?.releaseId ?? preset.releaseId ?? null,
     companyId: action?.companyId ?? preset.companyId ?? null,
     marketingItemId: action?.marketingItemId ?? preset.marketingItemId ?? null,
     startDate: action?.startDate ?? '',
@@ -105,6 +114,7 @@ export function MarketingActionDialog({
   const events = trpcReact.dealMemo.listByBand.useQuery(bandId, { enabled: open })
   const companies = trpcReact.company.getListItems.useQuery(undefined, { enabled: open })
   const tours = trpcReact.tourImport.tours.useQuery(undefined, { enabled: open })
+  const releases = trpcReact.release.listByBand.useQuery(bandId, { enabled: open })
   const atlas = trpcReact.marketing.overview.useQuery(bandId, { enabled: open })
   const receipts = trpcReact.receipt.list.useQuery({ page: 1, pageSize: 200 }, { enabled: open })
 
@@ -144,6 +154,7 @@ export function MarketingActionDialog({
       dealMemoId: draft.dealMemoId,
       tour: draft.tour,
       release: draft.release,
+      releaseId: draft.releaseId,
       companyId: draft.companyId,
       marketingItemId: draft.marketingItemId,
       startDate: draft.startDate || null,
@@ -262,12 +273,39 @@ export function MarketingActionDialog({
           </div>
           <div className="space-y-1">
             <Label htmlFor="action-release">{t('Release')}</Label>
-            <Input
-              id="action-release"
-              placeholder={t('z. B. neues Album')}
-              value={draft.release}
-              onChange={(event) => set({ release: event.target.value })}
-            />
+            {/* #289: a release of the band, or free text for one not kept in the app */}
+            {(releases.data ?? []).length > 0 && (
+              <SearchableSelect
+                id="action-release"
+                value={draft.releaseId}
+                onChange={(releaseId) =>
+                  set({
+                    releaseId,
+                    release:
+                      releases.data?.find((release) => release.id === releaseId)?.title ??
+                      (releaseId === null ? '' : draft.release)
+                  })
+                }
+                options={(releases.data ?? []).map((release) => ({
+                  value: release.id,
+                  label: release.title,
+                  hint: release.releaseDate?.slice(0, 4)
+                }))}
+                noneLabel={t('Keins aus der Liste')}
+                placeholder={t('Release wählen')}
+                searchPlaceholder={t('Release suchen…')}
+                emptyText={t('Kein Release gefunden.')}
+              />
+            )}
+            {draft.releaseId === null && (
+              <Input
+                id={(releases.data ?? []).length > 0 ? 'action-release-text' : 'action-release'}
+                aria-label={t('Release als Text')}
+                placeholder={t('z. B. neues Album')}
+                value={draft.release}
+                onChange={(event) => set({ release: event.target.value })}
+              />
+            )}
           </div>
 
           <div className="space-y-1">

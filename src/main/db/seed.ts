@@ -26,6 +26,12 @@ import {
   company_invoice_settings,
   invoice,
   invoice_line_item,
+  release,
+  release_track,
+  release_product,
+  release_product_track,
+  release_contributor,
+  release_work_share,
   invoice_party_snapshot
 } from './schema'
 
@@ -603,6 +609,113 @@ export async function seedDatabase() {
         notes: 'Collaborates on electronic arrangements'
       }
     ])
+
+    // #289: a demo release with two products sharing three tracks (made-up codes)
+    console.log('Creating releases...')
+    const [demoRelease] = await db
+      .insert(release)
+      .values({
+        band_id: band1.id,
+        title: 'Static Horizons',
+        release_type: 'album',
+        release_date: '2027-03-19',
+        label: 'Sample Records',
+        catalog_number: 'SAMPLE001',
+        p_line: '℗ 2027 Sample Records',
+        c_line: '© 2027 Sample Records',
+        genre: 'Rock',
+        metadata_language: 'English'
+      })
+      .returning()
+    const demoTracks = await db
+      .insert(release_track)
+      .values(
+        [
+          ['Open Circuit', 201, 'XX0AA2700001'],
+          ['Low Tide Radio', 238, 'XX0AA2700002'],
+          ['Paper Satellites', 187, 'XX0AA2700003']
+        ].map(([title, duration, isrc], position) => ({
+          release_id: demoRelease.id,
+          position,
+          title: String(title),
+          duration_seconds: Number(duration),
+          isrc: String(isrc)
+        }))
+      )
+      .returning()
+    const demoProducts = await db
+      .insert(release_product)
+      .values([
+        {
+          release_id: demoRelease.id,
+          position: 0,
+          format: 'digital',
+          upc: '4006381333931',
+          catalog_number: 'SAMPLE001D',
+          territory: 'World'
+        },
+        {
+          release_id: demoRelease.id,
+          position: 1,
+          format: 'vinyl',
+          packaging: 'Gatefold',
+          color: 'Black',
+          upc: '036000291452',
+          catalog_number: 'SAMPLE001V',
+          disc_count: 1
+        }
+      ])
+      .returning()
+    await db.insert(release_product_track).values(
+      demoProducts.flatMap((product) =>
+        demoTracks.map((track, position) => ({
+          product_id: product.id,
+          track_id: track.id,
+          position,
+          side: product.format === 'vinyl' ? (position < 2 ? 'A' : 'B') : ''
+        }))
+      )
+    )
+    await db.insert(release_contributor).values([
+      { release_id: demoRelease.id, position: 0, name: 'Studio Muster', role: 'Mixing Engineer' },
+      {
+        release_id: demoRelease.id,
+        position: 1,
+        name: 'Studio Muster',
+        role: 'Mastering Engineer'
+      },
+      ...demoTracks.map((track) => ({
+        release_id: demoRelease.id,
+        track_id: track.id,
+        name: band1.name,
+        role: 'Primary Artist'
+      }))
+    ])
+    await db.insert(release_work_share).values(
+      demoTracks.flatMap((track) => [
+        {
+          track_id: track.id,
+          position: 0,
+          name: 'Erika Muster',
+          role: 'lyricist',
+          share_percent: 100
+        },
+        {
+          track_id: track.id,
+          position: 1,
+          name: 'Erika Muster',
+          role: 'composer',
+          share_percent: 50
+        },
+        {
+          track_id: track.id,
+          position: 2,
+          name: 'Max Beispiel',
+          role: 'composer',
+          share_percent: 50
+        }
+      ])
+    )
 
     // ========================================
     // Create Venues

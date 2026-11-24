@@ -15,7 +15,8 @@ export const LINK_KIND_LABELS: Record<DocumentOwnerType, string> = {
   band: t('Band'),
   company: t('Firma'),
   venue: t('Club / Festival'),
-  person: t('Person')
+  person: t('Person'),
+  release: t('Release')
 }
 
 /** "14.11.26 Show" for an event, the name for anything else */

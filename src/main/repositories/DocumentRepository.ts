@@ -95,6 +95,13 @@ export class DocumentRepository {
           .where(eq(schema.person.id, ownerId))
         return row ? `${row.first} ${row.last}`.trim() : null
       }
+      case 'release': {
+        const [row] = await db
+          .select({ title: schema.release.title, date: schema.release.release_date })
+          .from(schema.release)
+          .where(eq(schema.release.id, ownerId))
+        return row ? `${row.date ? `${row.date.slice(0, 4)} ` : ''}${row.title}` : null
+      }
     }
   }
 

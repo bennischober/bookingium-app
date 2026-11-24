@@ -13,7 +13,10 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import type { DocumentDto } from '../../../../main/api/schemas/document.schema'
+import {
+  isLinkableRecordType,
+  type DocumentDto
+} from '../../../../main/api/schemas/document.schema'
 import type { DocumentLinkDto } from '../../../../main/api/schemas/document_link.schema'
 import { LINK_KIND_LABELS, linkLabel } from './documentLinks'
 import { shownName } from './documentSort'
@@ -66,8 +69,11 @@ export function DocumentLinksDialog({
   const offered = (targets.data ?? []).filter(
     (target) => !sameRecord(target, owner) && !current.some((link) => sameRecord(link, target))
   )
-  const change = (target: DocumentLinkDto, linked: boolean) =>
+  const change = (target: DocumentLinkDto, linked: boolean) => {
+    // a release (#289) is never a link target
+    if (!isLinkableRecordType(target.kind)) return
     setLink.mutate({ documentId: document.id, kind: target.kind, id: target.id, linked })
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

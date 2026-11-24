@@ -80,6 +80,8 @@ export class MarketingActionService {
         showDate: row.showDate,
         tour: a.tour,
         release: a.release,
+        releaseId: a.release_id,
+        releaseTitle: row.releaseTitle,
         companyId: a.company_id,
         companyName: row.companyName,
         marketingItemId: a.marketing_item_id,

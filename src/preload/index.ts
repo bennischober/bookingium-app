@@ -72,6 +72,7 @@ const api = {
 
   pickImportFile: (droppedPath?: string) => ipcRenderer.invoke('import:pickFile', droppedPath),
   pickEInvoiceFile: () => ipcRenderer.invoke('einvoice:pickFile'),
+  pickLabelCopyFile: () => ipcRenderer.invoke('release:pickLabelCopy'),
   pickSettlementFile: () => ipcRenderer.invoke('settlement:pickFile'),
   pickReceiptFiles: () => ipcRenderer.invoke('receipt:pickFiles'),
   pickShowFolder: (mode: 'folder' | 'files') => ipcRenderer.invoke('showFolder:pick', mode),

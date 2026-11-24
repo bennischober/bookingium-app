@@ -21,7 +21,7 @@ import {
 import {
   DOCUMENT_TYPE_LABELS,
   DocumentType,
-  type DocumentOwnerType
+  type LinkableRecordType
 } from '../../../../main/api/schemas/document.schema'
 import { RecordPicker } from './RecordPicker'
 import { isRecordType, useRecordChoices, type RecordChoice } from './recordChoices'
@@ -60,10 +60,10 @@ export function AttachmentToDocumentDialog({
   // Documents hang off event/band/company/venue/person, so contract and invoice
   // links are skipped
   const linked = links.data?.find((link) => isRecordType(link.entityType))
-  const linkedType: DocumentOwnerType = isRecordType(linked?.entityType ?? '')
-    ? (linked!.entityType as DocumentOwnerType)
+  const linkedType: LinkableRecordType = isRecordType(linked?.entityType ?? '')
+    ? (linked!.entityType as LinkableRecordType)
     : 'band'
-  const [ownerType, setOwnerType] = useState<DocumentOwnerType>(linkedType)
+  const [ownerType, setOwnerType] = useState<LinkableRecordType>(linkedType)
   const [search, setSearch] = useState('')
   const [chosen, setChosen] = useState<RecordChoice | null>(null)
   const [documentType, setDocumentType] = useState<string>('other')

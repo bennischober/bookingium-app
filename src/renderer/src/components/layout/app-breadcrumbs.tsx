@@ -34,6 +34,8 @@ export function AppBreadcrumbs() {
   const companyId = companyMatch ? Number(companyMatch[1]) : null
   const venueId = venueMatch ? Number(venueMatch[1]) : null
   const personId = personMatch ? Number(personMatch[1]) : null
+  const releaseMatch = pathname.match(/^\/releases\/(\d+)/)
+  const releaseId = releaseMatch ? Number(releaseMatch[1]) : null
 
   const event = trpcReact.dealMemo.getById.useQuery(eventId ?? 0, { enabled: eventId !== null })
   const band = trpcReact.band.getById.useQuery(bandId ?? 0, { enabled: bandId !== null })
@@ -50,6 +52,10 @@ export function AppBreadcrumbs() {
     { enabled: personId !== null }
   )
 
+  const release = trpcReact.release.getById.useQuery(releaseId ?? 0, {
+    enabled: releaseId !== null
+  })
+
   const crumbs: Crumb[] = []
   const section = Object.values(ROUTES).find((route) => isRouteActive(route.path, pathname))
   if (section) crumbs.push({ title: section.title, path: section.path })
@@ -57,6 +63,7 @@ export function AppBreadcrumbs() {
   if (bandId !== null) crumbs.push({ title: band.data?.name ?? '…', name: true })
   if (companyId !== null) crumbs.push({ title: company.data?.name ?? '…', name: true })
   if (venueId !== null) crumbs.push({ title: venue.data?.name ?? '…', name: true })
+  if (releaseId !== null) crumbs.push({ title: release.data?.title ?? '…', name: true })
   if (personId !== null) {
     crumbs.push({
       title: person.data ? `${person.data.firstName} ${person.data.lastName}`.trim() : '…',

@@ -1,9 +1,9 @@
 import { z } from 'zod'
-import { DocumentDto, DocumentOwnerType } from './document.schema'
+import { DocumentDto, DocumentOwnerType, LinkableRecordType } from './document.schema'
 
 // A document belongs to its owner (where the file lies) and can be linked to further records:
 // the contract filed at the event is also the promoter's, its contact's and the festival's.
-// The records a document can be linked to are the document owner kinds.
+// The records a document can be linked to are LINKABLE_RECORD_TYPES (a release is not one).
 
 /** One further record a document belongs to */
 export const DocumentLinkDto = z.object({
@@ -21,7 +21,7 @@ export type DocumentLinksInput = z.infer<typeof DocumentLinksInput>
 /** Link (linked: true) or unlink a document and a record */
 export const SetDocumentLinkInput = z.object({
   documentId: z.number().int().positive(),
-  kind: DocumentOwnerType,
+  kind: LinkableRecordType,
   id: z.number().int().positive(),
   linked: z.boolean()
 })

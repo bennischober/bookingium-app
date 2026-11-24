@@ -23,6 +23,7 @@ import {
 import { sumCounts } from '@/hooks/useTabCounts'
 import { RecordInvoicesTable } from '@/components/invoice/RecordInvoicesTable'
 import { MarketingTab } from '@/components/band/marketing/MarketingTab'
+import { BandReleasesTab } from '@/components/release/BandReleasesTab'
 import { EventsTable } from '@/components/detail/DetailParts'
 import { eventPlace } from '@/components/event-list/pastEvent'
 import type { BandDto } from '../../../main/api/schemas/band.schema'
@@ -237,6 +238,12 @@ export default function BandDetailPage() {
               id: 'marketing',
               label: t('Marketing'),
               content: <MarketingTab bandId={band.id} bandName={band.name} />
+            },
+            {
+              id: 'releases',
+              label: t('Releases'),
+              count: counts.releases,
+              content: <BandReleasesTab bandId={band.id} />
             },
             {
               id: 'invoices',

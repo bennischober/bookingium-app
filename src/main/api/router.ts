@@ -51,6 +51,7 @@ import { tripRouter } from './routers/trip.router'
 import { accessRouter } from './routers/access.router'
 import { staffRouter } from './routers/staff.router'
 import { archiveRouter } from './routers/archive.router'
+import { releaseRouter } from './routers/release.router'
 
 const ee = new EventEmitter()
 
@@ -76,6 +77,7 @@ export const router = t.router({
   dealMemo: dealMemoRouter,
   itinerary: itineraryRouter,
   hotel: hotelRouter,
+  release: releaseRouter,
   document: documentRouter,
   invoice: invoiceRouter,
   contract: contractRouter,

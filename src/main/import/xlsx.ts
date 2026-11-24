@@ -57,7 +57,7 @@ function sharedStrings(xml: string | null): string[] {
 /** Built-in number formats that are dates (ECMA-376 18.8.30) */
 const BUILTIN_DATE_FORMATS = new Set([14, 15, 16, 17, 22, 27, 30, 36, 45, 46, 47, 50, 57])
 
-type CellStyle = { date: boolean; zeros: number }
+type CellStyle = { date: boolean; zeros: number; time?: boolean }
 
 /**
  * Per cell style index: whether the number format is a date, and how many digits a zero-padded
@@ -76,8 +76,16 @@ function cellStyles(xml: string | null): CellStyle[] {
     const code = custom.get(id)
     if (!code) return { date: false, zeros: 0 }
     if (/^0+$/.test(code)) return { date: false, zeros: code.length }
-    // a date format names day, month or year outside quoted text and brackets ([Red], [h])
-    const bare = code.replace(/"[^"]*"/g, '').replace(/\[[^\]]*\]/g, '')
+    // a date format names day, month or year outside quoted text and brackets ([Red], [h]);
+    // backslashes only escape the next character ("hh\:mm")
+    const bare = code
+      .replace(/"[^"]*"/g, '')
+      .replace(/\[[^\]]*\]/g, '')
+      .replace(/\\/g, '')
+    const elapsed = /\[(h+|m+|s+)\]/i.test(code)
+    // #289: a time or duration ("hh:mm", "[h]:mm:ss", "mm:ss") is no date: no day, no year
+    if (!/[dy]/i.test(bare) && (elapsed || /[hs]/i.test(bare)))
+      return { date: false, zeros: 0, time: true }
     return { date: /[dy]/i.test(bare) || /(^|[^h:])m{1,4}([^:s]|$)/i.test(bare), zeros: 0 }
   })
 }
@@ -91,6 +99,18 @@ export function excelSerialToDate(serial: number): string {
   const dd = String(date.getUTCDate()).padStart(2, '0')
   const mm = String(date.getUTCMonth() + 1).padStart(2, '0')
   return `${dd}.${mm}.${date.getUTCFullYear()}`
+}
+
+/**
+ * #289: a time or duration (a fraction of a day) as "H:MM" or "H:MM:SS"; hours go past 24
+ * for a duration. Seconds only when there are any.
+ */
+export function excelSerialToTime(serial: number): string {
+  const total = Math.round(Math.abs(serial) * 86_400)
+  const h = Math.floor(total / 3600)
+  const m = String(Math.floor((total % 3600) / 60)).padStart(2, '0')
+  const s = total % 60
+  return s ? `${h}:${m}:${String(s).padStart(2, '0')}` : `${h}:${m}`
 }
 
 /** "AB12" -> column index 27 */
@@ -188,7 +208,8 @@ function sheetRecords(sheetXml: string, strings: string[], styles: CellStyle[]):
       else if (type === 'b') text = raw === '1' ? 'WAHR' : raw === '0' ? 'FALSCH' : ''
       else if (raw !== undefined && raw !== '') {
         const cellStyle = styles[style]
-        if (cellStyle?.date) text = excelSerialToDate(Number(raw))
+        if (cellStyle?.time) text = excelSerialToTime(Number(raw))
+        else if (cellStyle?.date) text = excelSerialToDate(Number(raw))
         else if (cellStyle?.zeros && /^\d+$/.test(raw)) text = raw.padStart(cellStyle.zeros, '0')
         else text = numberText(raw)
       }

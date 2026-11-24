@@ -39,6 +39,7 @@ import { DatevCategory, DatevTransferStatus } from '../api/schemas/datev.schema'
 import { nextRowId } from '../sync/ids'
 import { StaffGrantAccess, StaffGrantEntity } from '../api/schemas/staff.schema'
 import { BandAgreementKind } from '../api/schemas/band_agreement.schema'
+import { ReleaseFormat, ReleaseType, WorkRole } from '../api/schemas/release.schema'
 
 /**
  * #151: a CHECK that a text column holds one of a zod enum's values, so the database and
@@ -1798,6 +1799,10 @@ export const marketing_action = sqliteTable(
     deal_memo_id: integer('deal_memo_id').references(() => deal_memo.id, { onDelete: 'set null' }),
     tour: text('tour').default('').notNull(),
     release: text('release').default('').notNull(),
+    // #289: the release it is for; the text above stays for a release not kept in the app
+    release_id: integer('release_id').references((): AnySQLiteColumn => release.id, {
+      onDelete: 'set null'
+    }),
     company_id: integer('company_id').references(() => company.id, { onDelete: 'set null' }),
     marketing_item_id: integer('marketing_item_id').references(() => marketing_item.id, {
       onDelete: 'set null'
@@ -1824,9 +1829,203 @@ export const marketing_action = sqliteTable(
     index('marketing_action_item_idx').on(table.marketing_item_id),
     index('marketing_action_receipt_idx').on(table.receipt_id),
     index('marketing_action_invoice_idx').on(table.invoice_id),
+    index('marketing_action_release_idx').on(table.release_id),
     oneOf('marketing_action_kind_check', 'kind', MarketingActionKind.options),
     oneOf('marketing_action_status_check', 'status', MarketingActionStatus.options),
     oneOf('marketing_action_payer_check', 'payer', MarketingPayer.options)
+  ]
+)
+
+// ========================================
+// Releases (#289)
+// ========================================
+// The label copy of a record: the release, the products it comes out as (each with its own
+// UPC and catalogue number), the tracks they share, who performed and who wrote them.
+
+export const release = sqliteTable(
+  'release',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    // set null: deleting a band must not take the release archive with it
+    band_id: integer('band_id').references(() => band.id, { onDelete: 'set null' }),
+    artist_name: text('artist_name').default('').notNull(),
+    title: text('title').notNull(),
+    version: text('version').default('').notNull(),
+    release_type: text('release_type').default('album').notNull(),
+    release_date: text('release_date'),
+    original_release_date: text('original_release_date'),
+    preorder_d2c_date: text('preorder_d2c_date'),
+    preorder_retail_date: text('preorder_retail_date'),
+    preorder_digital_date: text('preorder_digital_date'),
+    label: text('label').default('').notNull(),
+    catalog_number: text('catalog_number').default('').notNull(),
+    p_line: text('p_line').default('').notNull(),
+    c_line: text('c_line').default('').notNull(),
+    genre: text('genre').default('').notNull(),
+    sub_genre: text('sub_genre').default('').notNull(),
+    metadata_language: text('metadata_language').default('').notNull(),
+    recording_country: text('recording_country').default('').notNull(),
+    project_number: text('project_number').default('').notNull(),
+    notes: text('notes').default('').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('release_band_idx').on(table.band_id),
+    index('release_title_idx').on(table.title),
+    index('release_catalog_number_idx').on(table.catalog_number),
+    index('release_date_idx').on(table.release_date),
+    oneOf('release_type_check', 'release_type', ReleaseType.options)
+  ]
+)
+
+export const release_track = sqliteTable(
+  'release_track',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    release_id: integer('release_id')
+      .notNull()
+      .references(() => release.id, { onDelete: 'cascade' }),
+    // the release's own order of its tracks; a product's tracklist has its own
+    position: integer('position').default(0).notNull(),
+    title: text('title').notNull(),
+    version: text('version').default('').notNull(),
+    duration_seconds: integer('duration_seconds'),
+    isrc: text('isrc').default('').notNull(),
+    explicit: integer('explicit', { mode: 'boolean' }).default(false).notNull(),
+    genre: text('genre').default('').notNull(),
+    p_line: text('p_line').default('').notNull(),
+    c_line: text('c_line').default('').notNull(),
+    video_isrc: text('video_isrc').default('').notNull(),
+    lyrics: text('lyrics').default('').notNull(),
+    notes: text('notes').default('').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('release_track_release_idx').on(table.release_id, table.position),
+    index('release_track_isrc_idx').on(table.isrc)
+  ]
+)
+
+export const release_product = sqliteTable(
+  'release_product',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    release_id: integer('release_id')
+      .notNull()
+      .references(() => release.id, { onDelete: 'cascade' }),
+    position: integer('position').default(0).notNull(),
+    format: text('format').default('digital').notNull(),
+    title: text('title').default('').notNull(),
+    packaging: text('packaging').default('').notNull(),
+    color: text('color').default('').notNull(),
+    upc: text('upc').default('').notNull(),
+    catalog_number: text('catalog_number').default('').notNull(),
+    territory: text('territory').default('').notNull(),
+    disc_count: integer('disc_count'),
+    release_date: text('release_date'),
+    price_code: text('price_code').default('').notNull(),
+    box_lot: integer('box_lot'),
+    notes: text('notes').default('').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('release_product_release_idx').on(table.release_id, table.position),
+    index('release_product_upc_idx').on(table.upc),
+    index('release_product_catalog_number_idx').on(table.catalog_number),
+    oneOf('release_product_format_check', 'format', ReleaseFormat.options)
+  ]
+)
+
+// A product's tracklist: which of the release's tracks, in which order, on which disc and side
+export const release_product_track = sqliteTable(
+  'release_product_track',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    product_id: integer('product_id')
+      .notNull()
+      .references(() => release_product.id, { onDelete: 'cascade' }),
+    track_id: integer('track_id')
+      .notNull()
+      .references(() => release_track.id, { onDelete: 'cascade' }),
+    position: integer('position').default(0).notNull(),
+    disc: integer('disc').default(1).notNull(),
+    side: text('side').default('').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    uniqueIndex('release_product_track_idx').on(table.product_id, table.track_id),
+    index('release_product_track_track_idx').on(table.track_id)
+  ]
+)
+
+// Who took part: in the release as a whole (track_id null: producer, mix, artwork …) or in
+// one track (primary artist, featuring, guest musician)
+export const release_contributor = sqliteTable(
+  'release_contributor',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    release_id: integer('release_id')
+      .notNull()
+      .references(() => release.id, { onDelete: 'cascade' }),
+    track_id: integer('track_id').references(() => release_track.id, { onDelete: 'cascade' }),
+    position: integer('position').default(0).notNull(),
+    name: text('name').notNull(),
+    role: text('role').default('').notNull(),
+    instrument: text('instrument').default('').notNull(),
+    person_id: integer('person_id').references(() => person.id, { onDelete: 'set null' }),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('release_contributor_release_idx').on(table.release_id),
+    index('release_contributor_track_idx').on(table.track_id),
+    index('release_contributor_person_idx').on(table.person_id)
+  ]
+)
+
+// The shares in the work behind a track (lyrics, music) as the copy states them
+export const release_work_share = sqliteTable(
+  'release_work_share',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    track_id: integer('track_id')
+      .notNull()
+      .references(() => release_track.id, { onDelete: 'cascade' }),
+    position: integer('position').default(0).notNull(),
+    name: text('name').notNull(),
+    role: text('role').default('composer').notNull(),
+    share_percent: real('share_percent'),
+    society: text('society').default('').notNull(),
+    ipi: text('ipi').default('').notNull(),
+    publisher: text('publisher').default('').notNull(),
+    country: text('country').default('').notNull(),
+    person_id: integer('person_id').references(() => person.id, { onDelete: 'set null' }),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('release_work_share_track_idx').on(table.track_id),
+    index('release_work_share_person_idx').on(table.person_id),
+    oneOf('release_work_share_role_check', 'role', WorkRole.options)
   ]
 )
 
@@ -1939,6 +2138,12 @@ export const schema = {
   marketing_atlas,
   marketing_item,
   marketing_action,
+  release,
+  release_track,
+  release_product,
+  release_product_track,
+  release_contributor,
+  release_work_share,
   app_setting,
   contact_list,
   contact_list_member,

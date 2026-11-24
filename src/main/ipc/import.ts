@@ -67,6 +67,16 @@ export function registerImportIpc(): void {
     return result.canceled ? null : (result.filePaths[0] ?? null)
   })
 
+  /** #289: picks a label copy; reading and merging it go through tRPC (release.planLabelCopy) */
+  ipcMain.handle('release:pickLabelCopy', async (event): Promise<string | null> => {
+    const result = await showOpenDialogFor(event.sender, {
+      title: 'Labelcopy wählen',
+      properties: ['openFile'],
+      filters: [{ name: 'Labelcopy (Excel oder PDF)', extensions: ['xlsx', 'pdf'] }]
+    })
+    return result.canceled ? null : (result.filePaths[0] ?? null)
+  })
+
   /** Show-Ordner: picks the agency's folder of a show, or single files of it */
   ipcMain.handle('showFolder:pick', async (event, mode: unknown): Promise<string[]> => {
     const folder = mode === 'folder'

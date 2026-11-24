@@ -3,7 +3,14 @@ import { t } from '../../../main/i18n/translate'
 // the search palette. Detail pages add themselves when they show a record and drop
 // themselves when the record is gone. Kept in localStorage, so they survive a restart.
 
-export type RecentRecordKind = 'event' | 'band' | 'company' | 'person' | 'venue' | 'invoice'
+export type RecentRecordKind =
+  | 'event'
+  | 'band'
+  | 'company'
+  | 'person'
+  | 'venue'
+  | 'invoice'
+  | 'release'
 
 export type RecentRecord = {
   /** The detail page's path, e.g. "/band/3" (no ?tab=) */
@@ -18,7 +25,8 @@ export const RECENT_RECORD_KIND_LABELS: Record<RecentRecordKind, string> = {
   company: t('Firma'),
   person: t('Person'),
   venue: t('Club / Festival'),
-  invoice: t('Rechnung')
+  invoice: t('Rechnung'),
+  release: t('Release')
 }
 
 const STORAGE_KEY = 'bookingium-recent-records'
