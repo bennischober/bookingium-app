@@ -1,6 +1,7 @@
 import {
   Building2,
   CalendarDays,
+  Disc3,
   FileText,
   Guitar,
   Hotel,
@@ -78,6 +79,8 @@ export const ROUTES = {
     icon: ClipboardList,
     shortcut: '4'
   },
+  // #289: the label copies of the releases
+  releases: { path: '/releases', title: t('Releases'), group: t('Planung'), icon: Disc3 },
   // Shown only while its switch in the settings is on (#102)
   map: { path: '/map', title: t('Karte'), group: t('Planung'), icon: MapIcon },
   invoices: {

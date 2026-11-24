@@ -90,6 +90,15 @@ describe('enum columns', () => {
     [
       "insert into band_agreement (band_id, kind) values (1, 'merchandising')",
       'band_agreement_kind_check'
+    ],
+    ["insert into release (title, release_type) values ('X', 'mixtape')", 'release_type_check'],
+    [
+      "insert into release_product (release_id, format) values (1, 'mp3')",
+      'release_product_format_check'
+    ],
+    [
+      "insert into release_work_share (track_id, name, role) values (1, 'X', 'writer')",
+      'release_work_share_role_check'
     ]
   ])('%s', (sql, constraint) => {
     expect(run(sql)).toThrow(CHECK)

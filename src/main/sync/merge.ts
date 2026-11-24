@@ -74,6 +74,13 @@ export const MERGE_ORDER: readonly string[] = [
   'marketing_atlas',
   'marketing_item',
   'marketing_action',
+  // #289: releases with their tracks, products, tracklists, credits and work shares
+  'release',
+  'release_track',
+  'release_product',
+  'release_product_track',
+  'release_contributor',
+  'release_work_share',
   'document',
   // further records a document belongs to; after the document and every record it names
   'document_link',
@@ -251,6 +258,22 @@ export function keyOf(table: string, row: Row): string | null {
       return row.kind ? key(row.kind, row.lang) : key('name', n(row.name))
     case 'app_setting':
       return v(row.key)
+    case 'release':
+      return key(row.band_id, n(row.artist_name), n(row.title), n(row.version))
+    case 'release_track':
+      return row.isrc ? key(row.release_id, 'isrc', n(row.isrc)) : key(row.release_id, n(row.title))
+    case 'release_product':
+      return row.upc
+        ? key(row.release_id, 'upc', n(row.upc))
+        : row.catalog_number
+          ? key(row.release_id, 'cat', n(row.catalog_number))
+          : null
+    case 'release_product_track':
+      return key(row.product_id, row.track_id)
+    case 'release_contributor':
+      return key(row.release_id, row.track_id, n(row.name), n(row.role), n(row.instrument))
+    case 'release_work_share':
+      return key(row.track_id, n(row.name), row.role)
     default:
       return null
   }

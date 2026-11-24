@@ -20,7 +20,10 @@ import type { RecentRecordKind } from '@/lib/recentRecords'
 import { useHasMailAccount } from '@/hooks/useHasMailAccount'
 import { deleteQuestion } from '@/lib/recordCopy'
 import { isNotFound, type QueryError } from '@/lib/queryErrors'
-import type { DocumentOwnerType } from '../../../../main/api/schemas/document.schema'
+import {
+  isLinkableRecordType,
+  type DocumentOwnerType
+} from '../../../../main/api/schemas/document.schema'
 import { t } from '../../../../main/i18n/translate'
 import { StaffShareButton } from '@/components/staff/StaffShareButton'
 
@@ -159,7 +162,11 @@ export function RecordDetail<TTab extends string>({
     record.type === 'person' ||
     record.type === 'venue' ||
     record.type === 'band'
-  const followUpRecord = { type: record.type, id: record.id, name: record.name }
+  // #289: a release keeps documents, but has no follow-ups, mails or linked documents
+  const recordType = record.type
+  const followUpRecord = isLinkableRecordType(recordType)
+    ? { type: recordType, id: record.id, name: record.name }
+    : null
   useRecentRecordVisit({ kind: record.type as RecentRecordKind, label: record.name })
 
   // Documents and mails are one tab: both are what was exchanged about the record
@@ -167,18 +174,18 @@ export function RecordDetail<TTab extends string>({
     ...tabs.filter((tab) => !(tab.hideWhenEmpty && tab.count === 0 && tab.id !== activeTab)),
     {
       id: 'documents',
-      label: hasMailAccount ? t('Dokumente & E-Mails') : t('Dokumente'),
+      label: hasMailAccount && followUpRecord ? t('Dokumente & E-Mails') : t('Dokumente'),
       count: documents.count,
       className: 'space-y-8',
       content: (
         <>
           <DocumentsPanel ownerType={record.type} ownerId={record.id} title={documents.title} />
-          <RelatedDocumentsSection kind={record.type} id={record.id} />
+          {followUpRecord && <RelatedDocumentsSection kind={followUpRecord.type} id={record.id} />}
           {documents.extra}
-          {hasMailAccount && (
+          {hasMailAccount && followUpRecord && (
             <section className="space-y-3">
               <h2 className="text-base font-semibold">E-Mails</h2>
-              <MailHistoryPanel entityType={record.type} entityId={record.id} />
+              <MailHistoryPanel entityType={followUpRecord.type} entityId={record.id} />
             </section>
           )}
         </>
@@ -212,7 +219,7 @@ export function RecordDetail<TTab extends string>({
               record.type === 'venue') && (
               <StaffShareButton entity={record.type} entityId={record.id} />
             )}
-            <FollowUpButton record={followUpRecord} />
+            {followUpRecord && <FollowUpButton record={followUpRecord} />}
             <Button size="sm" variant="outline" className="gap-1.5" onClick={onEdit}>
               <Pencil className="h-3.5 w-3.5" />
               {t('Bearbeiten')}
@@ -242,8 +249,9 @@ export function RecordDetail<TTab extends string>({
         </div>
       </div>
 
-      <RecordFollowUps record={followUpRecord} />
-      <Tip id="recordActions" className="mb-4" />
+      {followUpRecord && <RecordFollowUps record={followUpRecord} />}
+      {/* the tip explains follow-ups and merging, which a release does not have */}
+      {followUpRecord && <Tip id="recordActions" className="mb-4" />}
 
       <Tabs
         value={activeTab}

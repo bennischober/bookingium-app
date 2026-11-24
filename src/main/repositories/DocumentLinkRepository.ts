@@ -4,13 +4,17 @@ import type { SQLiteColumn } from 'drizzle-orm/sqlite-core'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { notArchived } from './archiveFilter'
-import type { DocumentOwnerType } from '../api/schemas/document.schema'
+import {
+  LINKABLE_RECORD_TYPES,
+  type DocumentOwnerType,
+  type LinkableRecordType
+} from '../api/schemas/document.schema'
 import type { DocumentLinkDto } from '../api/schemas/document_link.schema'
 
 type DocumentRow = typeof schema.document.$inferSelect
 
 /** The link column of each kind of record */
-const LINK_COLUMN: Record<DocumentOwnerType, SQLiteColumn> = {
+const LINK_COLUMN: Record<LinkableRecordType, SQLiteColumn> = {
   event: schema.document_link.deal_memo_id,
   band: schema.document_link.band_id,
   company: schema.document_link.company_id,
@@ -18,7 +22,7 @@ const LINK_COLUMN: Record<DocumentOwnerType, SQLiteColumn> = {
   person: schema.document_link.person_id
 }
 
-const LINK_FIELD: Record<DocumentOwnerType, keyof typeof schema.document_link.$inferInsert> = {
+const LINK_FIELD: Record<LinkableRecordType, keyof typeof schema.document_link.$inferInsert> = {
   event: 'deal_memo_id',
   band: 'band_id',
   company: 'company_id',
@@ -27,6 +31,10 @@ const LINK_FIELD: Record<DocumentOwnerType, keyof typeof schema.document_link.$i
 }
 
 const SEARCH_LIMIT = 8
+
+function isLinkable(kind: DocumentOwnerType): kind is LinkableRecordType {
+  return (LINKABLE_RECORD_TYPES as readonly string[]).includes(kind)
+}
 
 /**
  * Further records a document belongs to (document_link), and the documents that concern a
@@ -90,6 +98,14 @@ export class DocumentLinkRepository {
           .all())
           put(row.id, `${row.first} ${row.last}`.trim())
         break
+      case 'release':
+        for (const row of db
+          .select({ id: schema.release.id, name: schema.release.title })
+          .from(schema.release)
+          .where(inArray(schema.release.id, unique))
+          .all())
+          put(row.id, row.name)
+        break
     }
     return out
   }
@@ -102,7 +118,7 @@ export class DocumentLinkRepository {
       .where(eq(schema.document_link.document_id, documentId))
       .all()
     const out: DocumentLinkDto[] = []
-    for (const kind of Object.keys(LINK_FIELD) as DocumentOwnerType[]) {
+    for (const kind of LINKABLE_RECORD_TYPES) {
       const field = LINK_FIELD[kind]
       const ids = rows.map((row) => row[field] as number | null).filter((id) => id !== null)
       out.push(...this.labels(kind, ids).values())
@@ -111,7 +127,7 @@ export class DocumentLinkRepository {
   }
 
   /** Links or unlinks; linking twice keeps one row */
-  setLink(documentId: number, kind: DocumentOwnerType, id: number, linked: boolean): void {
+  setLink(documentId: number, kind: LinkableRecordType, id: number, linked: boolean): void {
     if (linked) {
       db.insert(schema.document_link)
         .values({ document_id: documentId, [LINK_FIELD[kind]]: id })
@@ -171,14 +187,17 @@ export class DocumentLinkRepository {
     id: number
   ): Array<{ document: DocumentRow; via: 'linked' | 'event'; source: DocumentLinkDto }> {
     const own = (row: DocumentRow) => row.owner_type === kind && row.owner_id === id
-    const linked = db
-      .select({ document: schema.document })
-      .from(schema.document_link)
-      .innerJoin(schema.document, eq(schema.document.id, schema.document_link.document_id))
-      .where(eq(LINK_COLUMN[kind], id))
-      .all()
-      .map((row) => row.document)
-      .filter((row) => !own(row))
+    // a release (#289) has no link column: nothing is linked to it
+    const linked = isLinkable(kind)
+      ? db
+          .select({ document: schema.document })
+          .from(schema.document_link)
+          .innerJoin(schema.document, eq(schema.document.id, schema.document_link.document_id))
+          .where(eq(LINK_COLUMN[kind], id))
+          .all()
+          .map((row) => row.document)
+          .filter((row) => !own(row))
+      : []
     const eventIds = this.eventIdsOf(kind, id)
     const fromEvents =
       eventIds.length === 0
@@ -208,7 +227,7 @@ export class DocumentLinkRepository {
 
     // where each file lies, named
     const byKind = new Map<DocumentOwnerType, Map<number, DocumentLinkDto>>()
-    for (const ownerKind of Object.keys(LINK_FIELD) as DocumentOwnerType[]) {
+    for (const ownerKind of LINKABLE_RECORD_TYPES) {
       const ids = picked
         .filter(({ document }) => document.owner_type === ownerKind)
         .map(({ document }) => document.owner_id)

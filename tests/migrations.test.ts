@@ -391,6 +391,7 @@ describe('runMigrations', () => {
       { name: 'document_owner_company_deleted', tbl_name: 'company' },
       { name: 'document_owner_event_deleted', tbl_name: 'deal_memo' },
       { name: 'document_owner_person_deleted', tbl_name: 'person' },
+      { name: 'document_owner_release_deleted', tbl_name: 'release' },
       { name: 'document_owner_venue_deleted', tbl_name: 'venue' },
       { name: 'mail_link_band_deleted', tbl_name: 'band' },
       { name: 'mail_link_company_deleted', tbl_name: 'company' },

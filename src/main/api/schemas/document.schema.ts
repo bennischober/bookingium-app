@@ -3,7 +3,20 @@ import { createPaginatedResponse } from './base.schema'
 import { t } from '../../i18n/translate'
 
 /** Records documents can belong to ('event' = deal memo) */
-export const DOCUMENT_OWNER_TYPES = ['event', 'band', 'company', 'venue', 'person'] as const
+/**
+ * The records a document can also be linked to (document_link has a column for each) and that
+ * follow-ups and appointments can be attached to.
+ */
+export const LINKABLE_RECORD_TYPES = ['event', 'band', 'company', 'venue', 'person'] as const
+export const LinkableRecordType = z.enum(LINKABLE_RECORD_TYPES)
+export type LinkableRecordType = z.infer<typeof LinkableRecordType>
+
+export function isLinkableRecordType(kind: string): kind is LinkableRecordType {
+  return (LINKABLE_RECORD_TYPES as readonly string[]).includes(kind)
+}
+
+/** #289: a release keeps its label copies as documents, but has no links, follow-ups or appointments */
+export const DOCUMENT_OWNER_TYPES = [...LINKABLE_RECORD_TYPES, 'release'] as const
 export const DocumentOwnerType = z.enum(DOCUMENT_OWNER_TYPES)
 export type DocumentOwnerType = z.infer<typeof DocumentOwnerType>
 

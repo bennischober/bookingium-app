@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { DOCUMENT_OWNER_TYPES } from './document.schema'
+import { LINKABLE_RECORD_TYPES } from './document.schema'
 
 /** Records a follow-up can be on: those that own documents ('event' = deal memo), and invoices */
-export const FollowUpRecordType = z.enum([...DOCUMENT_OWNER_TYPES, 'invoice'])
+export const FollowUpRecordType = z.enum([...LINKABLE_RECORD_TYPES, 'invoice'])
 export type FollowUpRecordType = z.infer<typeof FollowUpRecordType>
 
 export const FollowUpRecord = z.object({

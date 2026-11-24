@@ -17,6 +17,7 @@ import {
   CalendarDays,
   CirclePlus,
   DatabaseBackup,
+  Disc3,
   FileText,
   Guitar,
   Hotel,
@@ -46,7 +47,8 @@ const RECENT_RECORD_ICONS: Record<RecentRecordKind, LucideIcon> = {
   company: Building2,
   person: User,
   venue: MapPin,
-  invoice: FileText
+  invoice: FileText,
+  release: Disc3
 }
 
 type RecentCommand = {
@@ -89,6 +91,10 @@ const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string
   '/clubs': { description: t('Clubs öffnen'), aliases: ['locations', 'venues', 'spielstätten'] },
   '/festivals': { description: t('Festivals öffnen'), aliases: ['locations', 'open air'] },
   '/hotels': { description: t('Hotelverzeichnis öffnen'), aliases: ['accommodation'] },
+  '/releases': {
+    description: t('Labelcopys: Produkte, Tracks, ISRC, UPC und Rechte'),
+    aliases: ['release', 'labelcopy', 'album', 'single', 'isrc', 'upc', 'ean', 'veröffentlichung']
+  },
   '/map': {
     description: t('Events, Clubs und Festivals auf der Karte'),
     aliases: ['karte', 'tourplanung', 'gebietsschutz', 'radius']

@@ -168,6 +168,13 @@ export const TABLE_RULES: ReadonlyArray<[string, Rule]> = [
   ['trip', { kind: 'grant', entity: 'trip' }],
   ['receipt', { kind: 'grant', entity: 'receipt' }],
   ['marketing_action', bandWork],
+  // #289: the releases of a shared band, with everything in them
+  ['release', bandWork],
+  ['release_track', child('release', 'release_id')],
+  ['release_product', child('release', 'release_id')],
+  ['release_product_track', child('release_product', 'product_id')],
+  ['release_contributor', child('release', 'release_id')],
+  ['release_work_share', child('release_track', 'track_id')],
   // documents: filed at a visible event, or granted
   [
     'document',
@@ -176,9 +183,11 @@ export const TABLE_RULES: ReadonlyArray<[string, Rule]> = [
       entity: 'document',
       // invoices and settlements filed at an event are money: they need a grant of their own
       inherit: (row, l) =>
-        row.owner_type === 'event' &&
-        !MONEY_DOCUMENTS.has(String(row.document_type)) &&
-        l.has('deal_memo', row.owner_id)
+        (row.owner_type === 'event' &&
+          !MONEY_DOCUMENTS.has(String(row.document_type)) &&
+          l.has('deal_memo', row.owner_id)) ||
+        // #289: the label copy filed at a visible release
+        (row.owner_type === 'release' && l.has('release', row.owner_id))
     }
   ],
   ['document_link', child('document', 'document_id')],

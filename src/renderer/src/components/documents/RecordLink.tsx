@@ -17,6 +17,12 @@ export function RecordLink({
   const props = { className, title, search: { tab: 'documents' } as never }
   const id = String(record.id)
   switch (record.kind) {
+    case 'release':
+      return (
+        <Link to="/releases/$releaseId" params={{ releaseId: id }} {...props}>
+          {children}
+        </Link>
+      )
     case 'event':
       return (
         <Link to="/events/$eventId" params={{ eventId: id }} {...props}>

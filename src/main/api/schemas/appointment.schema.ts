@@ -1,9 +1,9 @@
 import { z } from 'zod'
-import { DOCUMENT_OWNER_TYPES } from './document.schema'
+import { LINKABLE_RECORD_TYPES } from './document.schema'
 import { appointmentTimesError, REMINDER_MAX_MINUTES } from '../../calendar/appointments'
 
 /** #71: records an appointment can be on, the same five as documents ('event' = deal memo) */
-export const AppointmentRecordType = z.enum(DOCUMENT_OWNER_TYPES)
+export const AppointmentRecordType = z.enum(LINKABLE_RECORD_TYPES)
 export type AppointmentRecordType = z.infer<typeof AppointmentRecordType>
 
 export const AppointmentRecord = z.object({

@@ -18,7 +18,7 @@ import {
   extractContractParty,
   extractSheetPromoter
 } from '../showfolder/contractParty'
-import type { DocumentOwnerType } from '../api/schemas/document.schema'
+import type { LinkableRecordType } from '../api/schemas/document.schema'
 import { ItineraryService } from './ItineraryService'
 import { SettlementService } from './SettlementService'
 import { scheduleCalendarUpdate } from './CalendarFeedService'
@@ -619,7 +619,7 @@ export class ShowFolderService {
     // the read contract belongs to the records it names, not only to the event
     let links = 0
     if (documentId !== null) {
-      const targets: Array<{ kind: DocumentOwnerType; id: number }> = [
+      const targets: Array<{ kind: LinkableRecordType; id: number }> = [
         { kind: 'event', id: input.eventId },
         ...(event.bandId !== null ? [{ kind: 'band' as const, id: event.bandId }] : []),
         ...(venueId !== null ? [{ kind: 'venue' as const, id: venueId }] : []),

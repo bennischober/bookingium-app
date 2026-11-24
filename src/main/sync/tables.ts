@@ -103,6 +103,7 @@ export const ALIAS_KEYS: Readonly<Record<string, readonly AliasKey[]>> = {
   event_step_done: [{ columns: ['deal_memo_id', 'step'] }],
   marketing_atlas: [{ columns: ['band_id'] }],
   marketing_item: [{ columns: ['band_id', 'item_key'] }],
+  release_product_track: [{ columns: ['product_id', 'track_id'] }],
   // #262: one grant per employee (or for all) and record
   staff_grant: [{ columns: ['employee_id', 'entity', 'entity_id'] }],
   employee: [{ columns: ['id_prefix'] }]
@@ -125,5 +126,6 @@ export const DOCUMENT_OWNER_TABLES: Readonly<Record<string, string>> = {
   band: 'band',
   company: 'company',
   venue: 'venue',
-  person: 'person'
+  person: 'person',
+  release: 'release'
 }

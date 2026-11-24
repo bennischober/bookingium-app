@@ -470,6 +470,20 @@
       "when": 1795512016499,
       "tag": "0066_calendar_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "6",
+      "when": 1795516444046,
+      "tag": "0067_releases",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "6",
+      "when": 1795516450864,
+      "tag": "0068_release_document_trigger",
+      "breakpoints": true
     }
   ]
 }

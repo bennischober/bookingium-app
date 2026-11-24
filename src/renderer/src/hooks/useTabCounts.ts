@@ -66,7 +66,9 @@ export function useBandTabCounts(id: number | null) {
   const invoices = trpcReact.invoice.listByBand.useQuery(bandId, on)
   const own = trpcReact.document.listByOwner.useQuery({ ownerType: 'band', ownerId: bandId }, on)
   const fromEvents = trpcReact.document.listEventDocumentsForBand.useQuery(bandId, on)
+  const releases = trpcReact.release.listByBand.useQuery(bandId, on)
   return {
+    releases: lengthOf(releases.data),
     members: lengthOf(members.data),
     events: lengthOf(events.data),
     contracts: lengthOf(contracts.data),

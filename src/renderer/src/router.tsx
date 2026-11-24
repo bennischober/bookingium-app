@@ -26,6 +26,8 @@ import CompanyDetailPage from '@/pages/CompanyDetailPage'
 import VenueDetailPage from '@/pages/VenueDetailPage'
 import VenuePage from '@/pages/VenuePage'
 import HotelPage from '@/pages/HotelPage'
+import ReleasePage from '@/pages/ReleasePage'
+import ReleaseDetailPage from '@/pages/ReleaseDetailPage'
 import ContactListPage from '@/pages/ContactListPage'
 import MapPage from '@/pages/MapPage'
 import MailPage from '@/pages/MailPage'
@@ -47,6 +49,7 @@ import type { ReminderKind } from '../../main/api/schemas/invoice.schema'
 import { isVenueTab, type VenueTab } from '@/components/venue/constants'
 import { isPersonTab, type PersonTab } from '@/components/person/constants'
 import { isSettingsTab, type SettingsTab } from '@/components/settings/constants'
+import { isReleaseTab, type ReleaseTab } from '@/components/release/constants'
 import { t } from '../../main/i18n/translate'
 
 const hashHistory = createHashHistory()
@@ -170,6 +173,22 @@ const hotelRoute = createRoute({
   path: ROUTES.hotels.path,
   validateSearch: validateListSearch,
   component: HotelPage
+})
+
+const releaseRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: ROUTES.releases.path,
+  validateSearch: validateListSearch,
+  component: ReleasePage
+})
+
+const releaseDetailRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/releases/$releaseId',
+  validateSearch: (search: Record<string, unknown>): { tab?: ReleaseTab } => ({
+    tab: isReleaseTab(search.tab) ? search.tab : undefined
+  }),
+  component: ReleaseDetailPage
 })
 
 const contactListRoute = createRoute({
@@ -337,6 +356,8 @@ const routeTree = rootRoute.addChildren([
     festivalRoute,
     venueListRoute,
     hotelRoute,
+    releaseRoute,
+    releaseDetailRoute,
     contactListRoute,
     mapRoute,
     mailRoute,

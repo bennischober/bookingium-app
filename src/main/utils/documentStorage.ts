@@ -29,7 +29,8 @@ const OWNER_DIRS: Record<DocumentOwnerType, string> = {
   band: 'bands',
   company: 'companies',
   venue: 'venues',
-  person: 'persons'
+  person: 'persons',
+  release: 'releases'
 }
 
 const TRANSLITERATION: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss' }
