@@ -3,6 +3,14 @@ import { t } from '../../../main/i18n/translate'
 
 /** Highlights per minor version ("1.6"); a patch release shows its minor's list */
 export const WHATS_NEW: Record<string, string[]> = {
+  '1.10': [
+    t(
+      'Abonnierte Kalender: Einstellungen › Kalender nimmt die ICS- oder webcal-Adresse eines Google-, iCloud- oder Outlook-Kalenders. Seine Termine erscheinen im Bookingium-Kalender, nur zum Ansehen, mit eigener Farbe und auch als Serie.'
+    ),
+    t(
+      'Bookingium in Outlook, Google oder Apple abonnieren: Die Kalender-Datei in einem OneDrive- oder Dropbox-Ordner teilen und den Link einfügen – Bookingium macht daraus die Abo-Adresse und prüft, ob die Datei darüber erreichbar und aktuell ist.'
+    )
+  ],
   '1.9': [
     t(
       'Mitarbeiterzugang: Einstellungen › Allgemein sperrt auf einem Computer die firmeninternen Bereiche (DATEV, eigene Firma und Rechnungseinstellungen, Import von Listen, Sicherung, Abgleich-Einrichtung), auf Wunsch mit PIN zum Entsperren.'
