@@ -6,6 +6,7 @@ import { container } from 'tsyringe'
 import { CompanyService } from '../src/main/services/CompanyService'
 import { InvoiceService } from '../src/main/services/InvoiceService'
 import { SettingsService } from '../src/main/services/SettingsService'
+import { BandService } from '../src/main/services/BandService'
 import { CreateCompanyInput } from '../src/main/api/schemas/company.schema'
 import { setupTestDb } from './helpers/setup'
 
@@ -58,6 +59,57 @@ describe('Kundennummern', () => {
     // The invoice shows it
     const print = await container.resolve(InvoiceService).getInvoicePrintData(draft.id)
     expect(print?.recipientSnapshot?.customer_number).toBe(10500)
+  })
+
+  it('of a band come from its company, which also stands on the invoice', async () => {
+    const issuer = await company('Issuer Band GmbH')
+    const gbr = await company('Beispielband – Muster & Beispiel GbR', 1)
+    const band = await container
+      .resolve(BandService)
+      .createBand({ name: 'BEISPIELBAND', genre: '', notes: '', companyId: gbr.id })
+    container.resolve(SettingsService).update({ nextCustomerNumber: 15000 })
+
+    const issued = await container.resolve(InvoiceService).createInvoice({
+      companyId: issuer.id,
+      recipientKind: 'band',
+      recipientBandId: band.id,
+      status: 'issued',
+      issueDate: '2026-11-20',
+      lineItems: line
+    })
+    const print = await container.resolve(InvoiceService).getInvoicePrintData(issued.id)
+    expect(print?.recipientSnapshot).toMatchObject({
+      kind: 'band',
+      source_band_id: band.id,
+      source_company_id: gbr.id,
+      legal_name: 'Beispielband – Muster & Beispiel GbR',
+      customer_number: 1
+    })
+    // No number of its own for the band, none used up
+    expect(container.resolve(SettingsService).get().nextCustomerNumber).toBe(15000)
+  })
+
+  it('go to the band’s company when it has none yet', async () => {
+    const issuer = await company('Issuer Band Neu GmbH')
+    const gbr = await company('Neue Band GbR')
+    const band = await container
+      .resolve(BandService)
+      .createBand({ name: 'NEUE BAND', genre: '', notes: '', companyId: gbr.id })
+    container.resolve(SettingsService).update({ nextCustomerNumber: 16000 })
+
+    const issued = await container.resolve(InvoiceService).createInvoice({
+      companyId: issuer.id,
+      recipientKind: 'band',
+      recipientBandId: band.id,
+      status: 'issued',
+      issueDate: '2026-11-20',
+      lineItems: line
+    })
+    expect((await container.resolve(CompanyService).getCompanyById(gbr.id))?.customer_number).toBe(
+      16000
+    )
+    const print = await container.resolve(InvoiceService).getInvoicePrintData(issued.id)
+    expect(print?.recipientSnapshot?.customer_number).toBe(16000)
   })
 
   it('skip numbers that are already taken, e.g. imported from DATEV', async () => {

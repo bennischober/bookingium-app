@@ -95,45 +95,26 @@ export function companySnapshotValues(tx: Tx, companyId: number): SnapshotValues
   }
 }
 
+/**
+ * A band as invoice recipient: an invoice goes to a legal entity, so the band's company stands on
+ * it, with its name, address, tax data and Kundennummer (the debtor in DATEV). The snapshot keeps
+ * kind 'band' and the band as its source, so the invoice stays linked to the band.
+ */
 function bandSnapshotValues(tx: Tx, bandId: number): SnapshotValues {
-  const rows = tx
-    .select({
-      band: schema.band,
-      company: schema.company,
-      address: schema.address,
-      contact: schema.contact,
-      bank: schema.bank
-    })
+  const band = tx
+    .select({ id: schema.band.id, companyId: schema.band.company_id })
     .from(schema.band)
-    .leftJoin(schema.company, eq(schema.band.company_id, schema.company.id))
-    .leftJoin(schema.address, eq(schema.company.address_id, schema.address.id))
-    .leftJoin(schema.contact, eq(schema.company.contact_id, schema.contact.id))
-    .leftJoin(schema.bank, eq(schema.company.bank_id, schema.bank.id))
     .where(eq(schema.band.id, bandId))
-    .limit(1)
-    .all()
-
-  if (rows.length === 0) {
+    .get()
+  if (!band) {
     throw new Error('Band nicht gefunden')
   }
-
-  const row = rows[0]
   return {
+    ...companySnapshotValues(tx, band.companyId),
     kind: 'band',
-    source_band_id: row.band.id,
-    legal_name: row.band.name,
-    customer_number: row.band.customer_number,
-    street: row.address?.street ?? '',
-    street_number: row.address?.street_number ?? '',
-    zip_code: row.address?.zip_code ?? '',
-    city: row.address?.city ?? '',
-    country: row.address?.country ?? '',
-    country_code: row.address?.country_code ?? '',
-    vat_id: row.company?.vat_id ?? '',
-    email: row.contact?.email ?? '',
-    phone: row.contact?.phone ?? row.contact?.mobile_phone ?? '',
-    iban: row.bank?.iban ?? '',
-    bic: row.bank?.bic ?? ''
+    source_band_id: band.id,
+    // The company's own logo is never printed on a recipient
+    logo_path: ''
   }
 }
 
@@ -247,8 +228,9 @@ export function withCustomerNumberTx(tx: Tx, values: SnapshotValues): SnapshotVa
   const source =
     values.kind === 'company' && values.source_company_id
       ? { table: schema.company, id: values.source_company_id }
-      : values.kind === 'band' && values.source_band_id
-        ? { table: schema.band, id: values.source_band_id }
+      : values.kind === 'band' && values.source_company_id
+        ? // A band's invoices go to its company, which holds the Kundennummer
+          { table: schema.company, id: values.source_company_id }
         : values.kind === 'person' && values.source_person_id
           ? { table: schema.person, id: values.source_person_id }
           : null

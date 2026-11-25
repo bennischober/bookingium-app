@@ -235,8 +235,8 @@ export const band = sqliteTable(
     name: text('name').notNull(),
     founded: text('founded'), // ISO 8601 format: YYYY-MM-DD
     notes: text('notes').default('').notNull(),
-    // Kundennummer, given on the first issued invoice to this customer (or entered, e.g. from
-    // DATEV); one number space across companies, bands and persons
+    // Kundennummer of older invoices; an invoice to a band now goes to the band's company, which
+    // holds the number. One number space across companies, bands and persons
     customer_number: integer('customer_number'),
     company_id: integer('company_id')
       .notNull()
