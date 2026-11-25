@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { FileUp, ListChecks, Megaphone } from 'lucide-react'
+import { FileUp, ListChecks, ListX, Megaphone, Undo2 } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
+import { toast } from '@/lib/toast'
+import { confirmAction } from '@/lib/confirm'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -23,12 +24,25 @@ import { MarketingImportDialog } from './MarketingImportDialog'
 import { MarketingPickDialog } from './MarketingPickDialog'
 import { MarketingItemRow } from './MarketingItemRow'
 import { MarketingActions } from './MarketingActions'
+import { AtlasFilterBar } from './AtlasFilterBar'
+import { AtlasMap } from './AtlasMap'
 import { Tip } from '@/components/Tip'
-import { countByCategory, countByStatus, filterItems, groupItems } from './marketingFilters'
+import {
+  countByCategory,
+  countByStatus,
+  countriesOf,
+  filterItems,
+  groupItems,
+  isOverdue,
+  type MarketingFilters
+} from './marketingFilters'
 import { t } from '../../../../../main/i18n/translate'
-import { isMarketingView, type MarketingView } from '../constants'
-
-const ALL = 'all'
+import {
+  isMarketingView,
+  marketingSearch,
+  type MarketingSearch,
+  type MarketingView
+} from '../constants'
 
 /**
  * The band's marketing: "Maßnahmen" (what is booked: spots, posters, ads …) and the
@@ -87,31 +101,127 @@ export function MarketingTab({ bandId, bandName }: { bandId: number; bandName: s
 
 /**
  * The band's Marketing-Atlas: head data, tabs, filters and the working list with its status.
- * Entries not picked wait in the pool ("Auswahl bearbeiten…").
+ * Entries not picked wait in the pool ("Auswahl bearbeiten…"). Filters, order and the map are
+ * kept in the URL; several entries can be selected for one status or to take them off the list.
  */
 function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
+  const utils = trpcReact.useUtils()
   const overview = trpcReact.marketing.overview.useQuery(bandId)
+  const navigate = useNavigate()
+  const search = marketingSearch(useSearch({ strict: false }) as Record<string, unknown>)
   const [importOpen, setImportOpen] = useState(false)
   const [pickOpen, setPickOpen] = useState(false)
-  const [category, setCategory] = useState<MarketingCategory | null>(null)
-  const [status, setStatus] = useState<MarketingStatus | null>(null)
-  const [query, setQuery] = useState('')
   const [showDropped, setShowDropped] = useState(false)
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  // typing stays local; the URL follows without a navigation per key
+  const [query, setQuery] = useState(search.q ?? '')
+
+  const setSearch = (patch: Partial<MarketingSearch>) =>
+    navigate({
+      to: '.',
+      search: (prev: Record<string, unknown>) => ({ ...prev, ...patch, view: 'atlas' }),
+      replace: true
+    } as never)
+  useEffect(() => {
+    if ((search.q ?? '') === query) return
+    const timer = setTimeout(() => void setSearch({ q: query.trim() ? query : undefined }), 300)
+    return () => clearTimeout(timer)
+    // only the typed text drives this
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query])
 
   const allItems = useMemo(() => overview.data?.items ?? [], [overview.data])
   const items = useMemo(() => allItems.filter((item) => item.picked), [allItems])
   const pool = allItems.filter((item) => !item.picked && item.inAtlas).length
   const categories = useMemo(() => countByCategory(items), [items])
   const statuses = useMemo(() => countByStatus(items), [items])
+  const countries = useMemo(() => countriesOf(items), [items])
+  const overdue = useMemo(
+    () => items.filter((item) => item.inAtlas && isOverdue(item)).length,
+    [items]
+  )
+  const sort = search.sort ?? 'priority'
   // the first tab with entries until one is picked
   const active =
-    category ?? MarketingCategory.options.find((option) => categories.has(option)) ?? null
+    search.cat ?? MarketingCategory.options.find((option) => categories.has(option)) ?? null
+  const filters: MarketingFilters = {
+    category: active,
+    status: search.status ?? null,
+    query: search.q ?? '',
+    showDropped,
+    priority: search.prio ?? null,
+    country: search.country ?? null,
+    quality: search.quality ?? null,
+    contact: search.contact ?? null,
+    action: search.action ?? null,
+    overdue: search.due ?? false
+  }
   const shown = useMemo(
-    () => filterItems(items, { category: active, status, query, showDropped }),
-    [items, active, status, query, showDropped]
+    () => filterItems(items, filters, sort),
+    // filters is rebuilt each render from the URL; its fields are the dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items, sort, JSON.stringify(filters)]
   )
+  const shownIds = useMemo(() => new Set(shown.map((item) => item.id)), [shown])
+  // a selection only counts for what is shown
+  const picked = [...selected].filter((id) => shownIds.has(id))
   const dropped = items.filter((item) => !item.inAtlas).length
   const atlas = overview.data?.atlas ?? null
+  const undo = overview.data?.undo ?? null
+  const extraFilters = [
+    search.prio,
+    search.country,
+    search.quality,
+    search.contact,
+    search.action
+  ].filter(Boolean).length
+
+  const refresh = () => utils.marketing.overview.invalidate(bandId)
+  const bulkStatus = trpcReact.marketing.updateMany.useMutation({
+    onSuccess: async (result) => {
+      await refresh()
+      setSelected(new Set())
+      toast.success(t('{{count}} Einträge aktualisiert', { count: result.changed }))
+    },
+    onError: (error) => toast.error(t('Nicht gespeichert'), { description: error.message })
+  })
+  const bulkUnpick = trpcReact.marketing.setPicked.useMutation({
+    onSuccess: async (result) => {
+      await refresh()
+      setSelected(new Set())
+      toast.success(t('{{count}} von der Liste genommen', { count: result.changed }))
+    },
+    onError: (error) => toast.error(t('Nicht gespeichert'), { description: error.message })
+  })
+  const exportCsv = trpcReact.marketing.exportList.useMutation({
+    onSuccess: (result) => {
+      if (!result.canceled)
+        toast.success(t('{{count}} Einträge exportiert', { count: result.rows }))
+    },
+    onError: (error) => toast.error(t('Export fehlgeschlagen'), { description: error.message })
+  })
+  const undoImport = trpcReact.marketing.undoImport.useMutation({
+    onSuccess: async (result) => {
+      await utils.invalidate()
+      toast.success(t('Letzter Import zurückgenommen'), {
+        description: t('{{restored}} Einträge wiederhergestellt, {{removed}} entfernt', result)
+      })
+    },
+    onError: (error) =>
+      toast.error(t('Import nicht zurückgenommen'), { description: error.message })
+  })
+  const askUndo = async () => {
+    const ok = await confirmAction({
+      title: t('Letzten Import zurücknehmen?'),
+      description: t(
+        'Atlas und Einträge stehen danach wieder wie vor dem Import vom {{date}}. Was seitdem an Status und Notizen geändert wurde, geht verloren; neu hinzugekommene Einträge werden entfernt. Angelegte Kontakte und Verteiler bleiben.',
+        { date: formatImportDate(undo?.importedAt ?? '') }
+      ),
+      confirmLabel: t('Zurücknehmen'),
+      destructive: true
+    })
+    if (ok) undoImport.mutate(bandId)
+  }
 
   const dialog = (
     <MarketingImportDialog
@@ -154,6 +264,14 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
     )
   }
 
+  const select = (id: number, on: boolean) => {
+    const next = new Set(selected)
+    if (on) next.add(id)
+    else next.delete(id)
+    setSelected(next)
+  }
+  const allShownSelected = shown.length > 0 && picked.length === shown.length
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -177,6 +295,15 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
                   {MARKETING_STATUS_LABELS[option]}: {statuses.get(option)}
                 </span>
               ))}
+            {overdue > 0 && (
+              <button
+                type="button"
+                className="font-medium text-amber-700 hover:underline dark:text-amber-400"
+                onClick={() => void setSearch({ due: search.due ? undefined : true })}
+              >
+                {t('{{count}} zum Nachfassen', { count: overdue })}
+              </button>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -185,6 +312,18 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
             <FileUp className="h-4 w-4" />
             {t('Atlas aktualisieren…')}
           </Button>
+          {undo && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2"
+              disabled={undoImport.isPending}
+              onClick={() => void askUndo()}
+            >
+              <Undo2 className="h-4 w-4" />
+              {t('Letzten Import zurücknehmen')}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -210,16 +349,16 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
               key={option}
               type="button"
               role="tab"
-              aria-selected={!query && active === option}
+              aria-selected={!filters.query && active === option}
               className={cn(
                 'rounded-md border px-3 py-1.5 text-sm',
-                !query && active === option
+                !filters.query && active === option
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'hover:bg-muted'
               )}
               onClick={() => {
-                setCategory(option)
                 setQuery('')
+                void setSearch({ cat: option, q: undefined })
               }}
             >
               {MARKETING_CATEGORY_LABELS[option]}
@@ -229,50 +368,101 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
       </div>
 
       {items.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3">
-          <Select
-            value={status ?? ALL}
-            onValueChange={(value) => setStatus(value === ALL ? null : (value as MarketingStatus))}
-          >
-            <SelectTrigger className="h-9 w-44" aria-label={t('Status filtern')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>{t('Jeder Status')}</SelectItem>
-              {MarketingStatus.options.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {MARKETING_STATUS_LABELS[option]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            className="h-9 w-64"
-            type="search"
-            placeholder={t('Suche über alle Reiter')}
-            aria-label={t('Suche im Marketing-Atlas')}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          {dropped > 0 && (
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-primary"
-                checked={showDropped}
-                onChange={(event) => setShowDropped(event.target.checked)}
-              />
-              {dropped} {t('nicht mehr im Atlas zeigen')}
-            </label>
+        <AtlasFilterBar
+          search={search}
+          setSearch={(patch) => void setSearch(patch)}
+          query={query}
+          setQuery={setQuery}
+          countries={countries}
+          extraFilters={extraFilters}
+          dropped={dropped}
+          showDropped={showDropped}
+          setShowDropped={setShowDropped}
+          shownCount={shown.length}
+          exporting={exportCsv.isPending}
+          onExport={() =>
+            shown.length > 0 && exportCsv.mutate({ bandId, ids: shown.map((item) => item.id) })
+          }
+        />
+      )}
+
+      {search.map && items.length > 0 && <AtlasMap items={shown} />}
+
+      {items.length > 0 && shown.length > 0 && (
+        <div
+          className={cn(
+            'flex flex-wrap items-center gap-3 rounded-md px-2 py-1.5 text-sm',
+            picked.length > 0 && 'bg-muted'
           )}
-          <span className="ml-auto text-sm text-muted-foreground">
-            {t('{{count}} angezeigt', { count: shown.length })}
-          </span>
+        >
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-primary"
+              checked={allShownSelected}
+              onChange={(event) =>
+                setSelected(event.target.checked ? new Set(shownIds) : new Set())
+              }
+            />
+            {picked.length > 0
+              ? t('{{count}} ausgewählt', { count: picked.length })
+              : t('Alle angezeigten auswählen')}
+          </label>
+          {picked.length > 0 && (
+            <>
+              <Select
+                value=""
+                onValueChange={(value) =>
+                  bulkStatus.mutate({ bandId, ids: picked, status: value as MarketingStatus })
+                }
+              >
+                <SelectTrigger className="h-8 w-48" aria-label={t('Status für die Auswahl')}>
+                  <SelectValue placeholder={t('Status setzen…')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {MarketingStatus.options.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {MARKETING_STATUS_LABELS[option]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1"
+                disabled={bulkUnpick.isPending}
+                onClick={() => bulkUnpick.mutate({ bandId, ids: picked, picked: false })}
+              >
+                <ListX className="h-3.5 w-3.5" />
+                {t('Von der Liste nehmen')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8"
+                onClick={() => setSelected(new Set())}
+              >
+                {t('Auswahl aufheben')}
+              </Button>
+            </>
+          )}
         </div>
       )}
 
       {items.length === 0 ? null : shown.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t('Keine Einträge mit diesen Filtern')}.</p>
+      ) : search.flat ? (
+        <ul className="border-t">
+          {shown.map((item) => (
+            <MarketingItemRow
+              key={item.id}
+              item={item}
+              selected={selected.has(item.id)}
+              onSelect={(on) => select(item.id, on)}
+            />
+          ))}
+        </ul>
       ) : (
         groupItems(shown).map(([group, entries]) => (
           <section key={group} className="space-y-1">
@@ -281,7 +471,12 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
             </h3>
             <ul className="border-t">
               {entries.map((item) => (
-                <MarketingItemRow key={item.id} item={item} />
+                <MarketingItemRow
+                  key={item.id}
+                  item={item}
+                  selected={selected.has(item.id)}
+                  onSelect={(on) => select(item.id, on)}
+                />
               ))}
             </ul>
           </section>
@@ -291,6 +486,13 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
       {pickDialog}
     </div>
   )
+}
+
+/** "2026-11-25 10:41:08" (SQLite, UTC) as the local date and time */
+function formatImportDate(value: string): string {
+  const date = new Date(value.replace(' ', 'T') + 'Z')
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 /** Facts, references, run log and excluded entries of the atlas, folded away */

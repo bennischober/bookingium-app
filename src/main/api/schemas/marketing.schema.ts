@@ -64,6 +64,16 @@ export const MARKETING_STATUS_LABELS: Record<MarketingStatus, string> = {
   active: t('Läuft schon')
 }
 
+/** An address-book record an entry could be linked to */
+export const MarketingContactCandidateDto = z.object({
+  kind: z.enum(['company', 'venue']),
+  id: z.number(),
+  name: z.string(),
+  /** City or country, to tell records of the same name apart */
+  place: z.string()
+})
+export type MarketingContactCandidateDto = z.infer<typeof MarketingContactCandidateDto>
+
 export const MarketingItemDto = z.object({
   id: z.number(),
   bandId: z.number(),
@@ -95,7 +105,11 @@ export const MarketingItemDto = z.object({
   /** On the band's working list; false: waits in the pool of the atlas */
   picked: z.boolean(),
   /** The furthest measure booked for it (Maßnahmen), null for none */
-  actionStatus: z.enum(['planned', 'booked', 'running', 'done']).nullable()
+  actionStatus: z.enum(['planned', 'booked', 'running', 'done']).nullable(),
+  /** Where the linked company or venue is (postcode precision), null when unknown */
+  location: z.object({ lat: z.number(), lng: z.number() }).nullable(),
+  /** Unlinked, and several address-book records carry its name: the team picks one */
+  candidates: z.array(MarketingContactCandidateDto)
 })
 export type MarketingItemDto = z.infer<typeof MarketingItemDto>
 
@@ -117,7 +131,9 @@ export type MarketingAtlasDto = z.infer<typeof MarketingAtlasDto>
 /** The entries of one band's atlas and its head data */
 export const MarketingOverviewDto = z.object({
   atlas: MarketingAtlasDto.nullable(),
-  items: z.array(MarketingItemDto)
+  items: z.array(MarketingItemDto),
+  /** The last import can be taken back (on this computer); when it ran */
+  undo: z.object({ importedAt: z.string() }).nullable()
 })
 export type MarketingOverviewDto = z.infer<typeof MarketingOverviewDto>
 
@@ -130,7 +146,9 @@ export const MarketingImportInput = z.object({
   /** Media companies and clubs/festivals for the picked entries that have none yet */
   createContacts: z.boolean().default(true),
   /** One member list (Verteiler) per tab with the linked contacts */
-  contactLists: z.boolean().default(false)
+  contactLists: z.boolean().default(false),
+  /** Renamed entries: key in the file → key of the stored entry that keeps status and links */
+  renames: z.record(z.string(), z.string()).default({})
 })
 export type MarketingImportInput = z.infer<typeof MarketingImportInput>
 
@@ -144,7 +162,11 @@ export const MarketingImportResultDto = z.object({
   companiesCreated: z.number(),
   venuesCreated: z.number(),
   linked: z.number(),
-  lists: z.number()
+  lists: z.number(),
+  /** Picked entries left unlinked: several address-book records carry the name */
+  ambiguous: z.number(),
+  /** Stored entries carried over to a new name */
+  renamed: z.number()
 })
 export type MarketingImportResultDto = z.infer<typeof MarketingImportResultDto>
 
@@ -162,7 +184,11 @@ export const MarketingFileEntryDto = z.object({
   /** Not in the band's atlas yet (only set when there is one) */
   isNew: z.boolean(),
   /** Suggested: already on the list, worked on, or new with priority A */
-  picked: z.boolean()
+  picked: z.boolean(),
+  /** In the band's atlas, with texts that differ from the stored ones */
+  changed: z.boolean(),
+  /** Probably a stored entry under a new name (same source, contact or a longer name) */
+  renamedFrom: z.object({ key: z.string(), name: z.string() }).nullable()
 })
 export type MarketingFileEntryDto = z.infer<typeof MarketingFileEntryDto>
 
@@ -174,7 +200,18 @@ export const MarketingFileDto = z.object({
   stand: z.string(),
   counts: z.array(z.object({ category: MarketingCategory, count: z.number() })),
   total: z.number(),
-  entries: z.array(MarketingFileEntryDto)
+  entries: z.array(MarketingFileEntryDto),
+  /** Names that stand more than once in the file (same tab); only the first one counts */
+  duplicates: z.array(z.string()),
+  /** Stored entries the file no longer lists (renames aside); they stay, marked */
+  dropped: z.array(
+    z.object({
+      name: z.string(),
+      category: MarketingCategory,
+      status: MarketingStatus,
+      picked: z.boolean()
+    })
+  )
 })
 export type MarketingFileDto = z.infer<typeof MarketingFileDto>
 
@@ -193,6 +230,22 @@ export const SetMarketingPickedResultDto = z.object({
   contactsCreated: z.number()
 })
 export type SetMarketingPickedResultDto = z.infer<typeof SetMarketingPickedResultDto>
+
+/** One status for several entries of a band (Mehrfachauswahl) */
+export const UpdateMarketingItemsInput = z.object({
+  bandId: z.number().int().positive(),
+  ids: z.array(z.number().int().positive()).min(1).max(20000),
+  status: MarketingStatus
+})
+export type UpdateMarketingItemsInput = z.infer<typeof UpdateMarketingItemsInput>
+
+/** Links an entry to the address book: the given record, or one found / created by name */
+export const LinkMarketingContactInput = z.object({
+  id: z.number().int().positive(),
+  companyId: z.number().int().positive().optional(),
+  venueId: z.number().int().positive().optional()
+})
+export type LinkMarketingContactInput = z.infer<typeof LinkMarketingContactInput>
 
 export const UpdateMarketingItemInput = z.object({
   id: z.number().int().positive(),

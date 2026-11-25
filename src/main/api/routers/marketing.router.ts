@@ -2,6 +2,10 @@ import { initTRPC, TRPCError } from '@trpc/server'
 import { container } from 'tsyringe'
 import { z } from 'zod'
 import { app, BrowserWindow, dialog } from 'electron'
+import { join } from 'path'
+import { writeFile } from 'fs/promises'
+import { atlasCsv } from '../../marketing/atlasCsv'
+import type { ExportResultDto } from '../schemas/export.schema'
 import { MarketingService } from '../../services/MarketingService'
 import { MarketingActionService } from '../../services/MarketingActionService'
 import { MarketingActionRepository } from '../../repositories/MarketingActionRepository'
@@ -16,6 +20,8 @@ import {
   MarketingImportInput,
   SetMarketingPickedInput,
   UpdateMarketingItemInput,
+  UpdateMarketingItemsInput,
+  LinkMarketingContactInput,
   type SetMarketingPickedResultDto,
   type MarketingCategory,
   type MarketingFileDto,
@@ -49,6 +55,27 @@ const badRequest = (error: unknown, fallback: string) =>
     message: error instanceof Error ? error.message : fallback
   })
 
+/** The band's atlas, its entries with their measures and candidates, and the undo state */
+function overviewDto(bandId: number): MarketingOverviewDto {
+  const { atlas, items, candidates, undo } = service.overview(bandId)
+  const byItem = new Map<number, string[]>()
+  for (const row of actionRepository.forItems(items.map((item) => item.id))) {
+    if (row.itemId === null) continue
+    byItem.set(row.itemId, [...(byItem.get(row.itemId) ?? []), row.status])
+  }
+  return {
+    atlas: atlas ? MarketingMapper.toAtlasDto(atlas) : null,
+    items: items.map((row) =>
+      MarketingMapper.toItemDto(
+        row,
+        actionStatusOf(byItem.get(row.id) ?? []),
+        candidates.get(row.id) ?? []
+      )
+    ),
+    undo
+  }
+}
+
 const linkDtos = (rows: ReturnType<MarketingService['linksOf']>): MarketingLinkDto[] =>
   rows.map((row) => ({
     ...row,
@@ -59,20 +86,47 @@ const linkDtos = (rows: ReturnType<MarketingService['linksOf']>): MarketingLinkD
 
 /** Marketing-Atlas of a band */
 export const marketingRouter = t.router({
-  overview: t.procedure.input(z.number().int()).query(({ input }): MarketingOverviewDto => {
-    const { atlas, items } = service.overview(input)
-    const byItem = new Map<number, string[]>()
-    for (const row of actionRepository.forItems(items.map((item) => item.id))) {
-      if (row.itemId === null) continue
-      byItem.set(row.itemId, [...(byItem.get(row.itemId) ?? []), row.status])
-    }
-    return {
-      atlas: atlas ? MarketingMapper.toAtlasDto(atlas) : null,
-      items: items.map((row) =>
-        MarketingMapper.toItemDto(row, actionStatusOf(byItem.get(row.id) ?? []))
-      )
-    }
-  }),
+  overview: t.procedure
+    .input(z.number().int())
+    .query(({ input }): MarketingOverviewDto => overviewDto(input)),
+
+  /** The given entries of the band's list, in that order, as a CSV file (save dialog) */
+  exportList: t.procedure
+    .input(
+      z.object({
+        bandId: z.number().int().positive(),
+        ids: z.array(z.number().int().positive()).min(1).max(20000)
+      })
+    )
+    .mutation(async ({ input }): Promise<ExportResultDto> => {
+      const byId = new Map(overviewDto(input.bandId).items.map((item) => [item.id, item]))
+      const items = input.ids
+        .map((id) => byId.get(id))
+        .filter((item): item is MarketingItemDto => !!item)
+      const band = service.bandName(input.bandId) ?? ''
+      const owner = BrowserWindow.getFocusedWindow()
+      const options: Electron.SaveDialogOptions = {
+        title: 'Als CSV-Datei exportieren',
+        defaultPath: join(
+          app.getPath('documents'),
+          `Marketing-Atlas ${band} ${new Date().toISOString().slice(0, 10)}.csv`.replace(
+            /[\\/:*?"<>|]/g,
+            '-'
+          )
+        ),
+        filters: [{ name: 'CSV-Datei', extensions: ['csv'] }]
+      }
+      const result = owner
+        ? await dialog.showSaveDialog(owner, options)
+        : await dialog.showSaveDialog(options)
+      if (result.canceled || !result.filePath) return { canceled: true, filePath: null, rows: 0 }
+      try {
+        await writeFile(result.filePath, atlasCsv(items, app.getSystemLocale() || 'de-DE'), 'utf-8')
+      } catch (error) {
+        throw badRequest(error, 'Export fehlgeschlagen')
+      }
+      return { canceled: false, filePath: result.filePath, rows: items.length }
+    }),
 
   /** Asks for an atlas file and says what it holds; null when the dialog was cancelled */
   pickAtlas: t.procedure
@@ -125,8 +179,26 @@ export const marketingRouter = t.router({
     }
   }),
 
-  /** Creates or finds the company/venue of an entry and links it */
-  linkContact: t.procedure.input(z.number().int()).mutation(({ input }) => {
+  /** One status for several entries (Mehrfachauswahl) */
+  updateMany: t.procedure.input(UpdateMarketingItemsInput).mutation(({ input }) => {
+    try {
+      return { changed: service.updateMany(input) }
+    } catch (error) {
+      throw badRequest(error, 'Nicht gespeichert')
+    }
+  }),
+
+  /** Takes the band's last atlas import back (on the computer that ran it) */
+  undoImport: t.procedure.input(z.number().int().positive()).mutation(({ input }) => {
+    try {
+      return service.undoImport(input)
+    } catch (error) {
+      throw badRequest(error, 'Import nicht zurückgenommen')
+    }
+  }),
+
+  /** Links an entry to the given company/venue, or creates/finds one by name */
+  linkContact: t.procedure.input(LinkMarketingContactInput).mutation(({ input }) => {
     try {
       service.linkContact(input)
     } catch (error) {

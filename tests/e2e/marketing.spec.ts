@@ -1,8 +1,9 @@
 // E2E: a band's Marketing-Atlas imported from a file with a chosen working list, an entry taken
-// from the pool and back, a status set, and the created media company showing the band's entry.
+// from the pool and back, a status set, and the created media company showing the band's entry;
+// then filters in the URL, one status for several entries, CSV, map and the import taken back.
 // Fictitious data only.
 import { test, expect } from '@playwright/test'
-import { mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, resolve } from 'path'
 import { launchApp, type AppHandle } from './helpers/launch'
@@ -174,4 +175,53 @@ test('imports a Marketing-Atlas into a band and links its contacts', async () =>
     'true'
   )
   await expect(page.getByRole('button', { name: /^Probe Rock FM/ })).toBeVisible()
+})
+
+test('filters in the URL, one status for several entries, CSV, map and taking the import back', async () => {
+  const { page } = h
+  const csv = join(fixtureDir, 'liste.csv')
+  await h.app.evaluate(({ dialog }, path) => {
+    dialog.showSaveDialog = (async () => ({ canceled: false, filePath: path })) as never
+  }, csv)
+  await page.getByRole('link', { name: 'Bands' }).first().click()
+  await page.locator('tr', { hasText: BAND }).first().click()
+  await page.getByRole('tab', { name: 'Marketing' }).click()
+  await page.getByRole('button', { name: 'Atlas', exact: true }).click()
+  await page.getByRole('tab', { name: /Radios/ }).click()
+
+  // a further filter lands in the URL and narrows the list
+  await page.getByRole('button', { name: 'Filter', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Priorität filtern' }).click()
+  await page.getByRole('option', { name: 'Priorität B' }).click()
+  await expect(page).toHaveURL(/prio=B/)
+  await expect(page.getByRole('button', { name: /^Probe Classic Radio/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Probe Rock FM/ })).toBeHidden()
+  await page.getByRole('button', { name: 'Filter zurücksetzen' }).click()
+  await expect(page.getByRole('button', { name: /^Probe Rock FM/ })).toBeVisible()
+
+  // both radios at once
+  await page.getByLabel('Alle angezeigten auswählen').check()
+  await expect(page.getByText('2 ausgewählt')).toBeVisible()
+  await page.getByRole('combobox', { name: 'Status für die Auswahl' }).click()
+  await page.getByRole('option', { name: 'Im Gespräch' }).click()
+  await expect(page.getByRole('combobox', { name: 'Status von Probe Rock FM' })).toHaveText(
+    'Im Gespräch'
+  )
+  await expect(page.getByRole('combobox', { name: 'Status von Probe Classic Radio' })).toHaveText(
+    'Im Gespräch'
+  )
+
+  // the shown list as a file, and the map above it
+  await page.getByRole('button', { name: 'Als CSV exportieren…' }).click()
+  await expect(page.getByText('2 Einträge exportiert')).toBeVisible()
+  expect(readFileSync(csv, 'utf-8')).toContain('Probe Classic Radio')
+  await page.getByRole('button', { name: 'Karte', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Karte des Marketing-Atlas' })).toBeVisible()
+  await expect(page).toHaveURL(/map=true/)
+  await page.screenshot({ path: join(shots, 'marketing-atlas-tools.png'), fullPage: true })
+
+  // the only import taken back: no atlas any more
+  await page.getByRole('button', { name: 'Letzten Import zurücknehmen' }).click()
+  await page.getByRole('button', { name: 'Zurücknehmen', exact: true }).click()
+  await expect(page.getByText(`Noch kein Marketing-Atlas für ${BAND}`)).toBeVisible()
 })

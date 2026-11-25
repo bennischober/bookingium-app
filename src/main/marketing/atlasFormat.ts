@@ -247,3 +247,75 @@ export function contactKindOf(category: MarketingCategory): 'media' | 'venue' | 
   if (category === 'festivals') return 'festival'
   return null
 }
+
+/** The texts an import overwrites differ between the stored entry and the file's */
+export function textsDiffer(stored: AtlasItem, next: AtlasItem): boolean {
+  const fields: Array<keyof AtlasItem> = [
+    'group',
+    'country',
+    'type',
+    'priority',
+    'reason',
+    'approach',
+    'timing',
+    'quality',
+    'url',
+    'activeNote'
+  ]
+  return (
+    fields.some((field) => stored[field] !== next[field]) ||
+    stored.contact.email !== next.contact.email ||
+    stored.contact.url !== next.contact.url ||
+    stored.contact.note !== next.contact.note
+  )
+}
+
+const plainName = (name: string): string =>
+  name
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+
+/**
+ * Entries of a file that probably continue a stored entry under a new name, as file key → stored
+ * key. Only within a tab, and only when exactly one pair fits: same contact email, same source
+ * link, or one name that starts with the other ("Rock FM" → "Rock FM 104,5"). A source link that
+ * several entries share (one playlist page for many stations) tells nothing and is ignored.
+ */
+export function findRenames(
+  added: AtlasItem[],
+  missing: Array<AtlasItem & { key: string }>
+): Map<string, string> {
+  const shared = (values: string[]) => {
+    const counts = new Map<string, number>()
+    for (const value of values) if (value) counts.set(value, (counts.get(value) ?? 0) + 1)
+    return (value: string) => (counts.get(value) ?? 0) > 1
+  }
+  const all = [...added, ...missing]
+  const sharedUrl = shared(all.map((item) => item.url))
+  const sharedEmail = shared(all.map((item) => item.contact.email.toLowerCase()))
+  const fits = (a: AtlasItem, b: AtlasItem): boolean => {
+    if (a.category !== b.category) return false
+    const email = a.contact.email.toLowerCase()
+    if (email && email === b.contact.email.toLowerCase() && !sharedEmail(email)) return true
+    if (a.url && a.url === b.url && !sharedUrl(a.url)) return true
+    const x = plainName(a.name)
+    const y = plainName(b.name)
+    const [short, long] = x.length <= y.length ? [x, y] : [y, x]
+    return short.length >= 4 && long.startsWith(short + ' ')
+  }
+  const options = added.map((item) => ({
+    key: itemKey(item),
+    matches: missing.filter((old) => fits(item, old))
+  }))
+  const used = new Map<string, number>()
+  for (const option of options)
+    for (const old of option.matches) used.set(old.key, (used.get(old.key) ?? 0) + 1)
+  const pairs = new Map<string, string>()
+  for (const option of options) {
+    if (option.matches.length !== 1) continue
+    const old = option.matches[0]
+    if (used.get(old.key) === 1) pairs.set(option.key, old.key)
+  }
+  return pairs
+}
