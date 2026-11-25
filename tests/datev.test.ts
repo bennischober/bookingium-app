@@ -533,4 +533,54 @@ describe('invoices written in DATEV (#246)', () => {
     })
     await expect(invoices().setCreatedInDatev(issued.id, true, 78)).rejects.toThrow(/Nummer bleibt/)
   })
+
+  it('cancels a DATEV invoice with DATEV’s Storno number, kept off the hand-over list', async () => {
+    const companyId = await setup('Datev Storno GmbH')
+    const fromDatev = await invoices().createInvoice({
+      companyId,
+      status: 'issued',
+      issueDate: '2026-11-03',
+      lineItems: line,
+      createdInDatev: true,
+      datevInvoiceNumber: 50
+    })
+    await expect(invoices().setInvoiceStatus(fromDatev.id, 'cancelled')).rejects.toThrow(
+      /Nummer der Stornorechnung aus DATEV/
+    )
+    await expect(invoices().setInvoiceStatus(fromDatev.id, 'cancelled', 50)).rejects.toThrow(
+      /schon vergeben/
+    )
+    expect((await invoices().getInvoiceById(fromDatev.id))?.status).toBe('issued')
+
+    await invoices().setInvoiceStatus(fromDatev.id, 'cancelled', 51)
+    const cancelled = await invoices().getInvoiceById(fromDatev.id)
+    expect(cancelled?.status).toBe('cancelled')
+    const storno = await invoices().getInvoiceById(cancelled!.cancelledBy!.id)
+    expect(storno).toMatchObject({
+      kind: 'cancellation',
+      invoice_number: 51,
+      created_in_datev: true,
+      total_gross_cents: -fromDatev.total_gross_cents
+    })
+    expect(pendingIds()).not.toContain(storno!.id)
+  })
+
+  it('cancels an invoice from here with the next number, handed over to DATEV', async () => {
+    const companyId = await setup('Hier Storno GmbH')
+    const issued = await invoices().createInvoice({
+      companyId,
+      status: 'issued',
+      issueDate: '2026-11-03',
+      lineItems: line
+    })
+    // a DATEV number given by mistake is ignored: the Storno belongs to this number space
+    await invoices().setInvoiceStatus(issued.id, 'cancelled', 999)
+    const cancelled = await invoices().getInvoiceById(issued.id)
+    const storno = await invoices().getInvoiceById(cancelled!.cancelledBy!.id)
+    expect(storno).toMatchObject({
+      invoice_number: (issued.invoice_number ?? 0) + 1,
+      created_in_datev: false
+    })
+    expect(pendingIds()).toContain(storno!.id)
+  })
 })

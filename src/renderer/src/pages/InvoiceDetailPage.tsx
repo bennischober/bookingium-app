@@ -1,6 +1,6 @@
 import { useRecentRecordVisit } from '@/hooks/useRecentRecords'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, Ban, BellRing, Lock, Mail, Printer } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { PageErrorState } from '@/components/load-states'
@@ -9,6 +9,7 @@ import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
 import { Button } from '@/components/ui/button'
 import { InvoiceDatevCreatedCard } from '@/components/invoice/InvoiceDatevCreatedCard'
+import { DatevCancellationDialog } from '@/components/invoice/DatevCancellationDialog'
 import { useStaffAccess } from '@/hooks/useStaffAccess'
 import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
@@ -281,9 +282,11 @@ function EInvoiceCheck({ invoiceId }: { invoiceId: number }) {
 function StatusActions({ invoice }: { invoice: InvoiceDto }) {
   const navigate = useNavigate()
   const invalidateInvoices = useInvalidateInvoices()
+  const [datevStornoOpen, setDatevStornoOpen] = useState(false)
 
   const statusMutation = trpcReact.invoice.setStatus.useMutation({
     onSuccess: (updated) => {
+      setDatevStornoOpen(false)
       invalidateInvoices()
       const stornoId = updated.cancelledByInvoiceId
       if (updated.status === 'cancelled' && stornoId) {
@@ -353,6 +356,10 @@ function StatusActions({ invoice }: { invoice: InvoiceDto }) {
           className="ml-auto"
           disabled={statusMutation.isPending}
           onClick={async () => {
+            if (invoice.createdInDatev) {
+              setDatevStornoOpen(true)
+              return
+            }
             if (
               await confirmAction({
                 title: t('Rechnung {{invoiceNumberLabel}} stornieren?', {
@@ -371,6 +378,17 @@ function StatusActions({ invoice }: { invoice: InvoiceDto }) {
         >
           <Ban className="h-4 w-4" /> {t('Stornieren')}
         </Button>
+      )}
+      {invoice.createdInDatev && (
+        <DatevCancellationDialog
+          open={datevStornoOpen}
+          invoiceNumberLabel={invoiceNumberLabel(invoice.invoiceNumber)}
+          pending={statusMutation.isPending}
+          onOpenChange={setDatevStornoOpen}
+          onConfirm={(datevCancellationNumber) =>
+            statusMutation.mutate({ id: invoice.id, status: 'cancelled', datevCancellationNumber })
+          }
+        />
       )}
     </div>
   )

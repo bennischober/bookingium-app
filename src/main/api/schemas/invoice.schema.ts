@@ -411,7 +411,9 @@ export type UpdateInvoiceInput = z.infer<typeof UpdateInvoiceInput>
 
 export const SetInvoiceStatusInput = z.object({
   id: z.number(),
-  status: InvoiceStatus
+  status: InvoiceStatus,
+  // Storno of an invoice written in DATEV: the Stornorechnung's number from DATEV
+  datevCancellationNumber: z.number().int().positive().optional()
 })
 
 export type SetInvoiceStatusInput = z.infer<typeof SetInvoiceStatusInput>
