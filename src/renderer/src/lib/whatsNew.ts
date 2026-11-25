@@ -3,6 +3,17 @@ import { t } from '../../../main/i18n/translate'
 
 /** Highlights per minor version ("1.6"); a patch release shows its minor's list */
 export const WHATS_NEW: Record<string, string[]> = {
+  '1.12': [
+    t(
+      'Marketing-Atlas: Der Import erkennt Kontakte zuerst an der E-Mail, zeigt vorher, was neu, geändert, weggefallen oder umbenannt ist, und lässt sich einmal rückgängig machen. Gibt es einen Namen mehrfach, wählt man den passenden Eintrag selbst.'
+    ),
+    t(
+      'Atlas-Liste mit Filtern (Priorität, Land, Qualität, Kontakt, Maßnahme), Sortierung, Mehrfachauswahl für den Status, CSV-Export und einer Karte. „Nachfassen“ markiert Anfragen, die seit 14 Tagen offen sind. Im Marketing-Tab steht jetzt „Maßnahmen“ vorn.'
+    ),
+    t(
+      'Dashboard › Offene Punkte: „Auswählen“ markiert mehrere oder alle Punkte auf einmal als extern erledigt, mit „Rückgängig“. Auf der Seite des Events lässt sich jeder Haken wieder entfernen, z. B. wenn doch noch eine Abrechnung kommt.'
+    )
+  ],
   '1.11': [
     t(
       'Releases (Menü Planung): die Labelcopy jedes Releases an einem Ort – Produkte mit UPC/EAN und Katalognummer, Tracks mit ISRC und Dauer, Credits und die Urheber mit ihren Anteilen. Jede Band hat dazu einen Tab „Releases“.'
