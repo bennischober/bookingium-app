@@ -198,6 +198,9 @@ export function ReceiptDialog({
                 {draft.sourceName && <span>{draft.sourceName}</span>}
                 {draft.isEInvoice && <Badge variant="secondary">E-Rechnung</Badge>}
                 {draft.isImage && <Badge variant="outline">{t('wird als PDF gespeichert')}</Badge>}
+                {draft.readFromText && (
+                  <Badge variant="outline">{t('aus dem PDF gelesen, bitte prüfen')}</Badge>
+                )}
               </div>
             )}
 

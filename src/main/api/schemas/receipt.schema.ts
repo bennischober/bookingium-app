@@ -119,6 +119,8 @@ export const ReceiptDraft = z.object({
   sourceName: z.string(),
   isEInvoice: z.boolean(),
   isImage: z.boolean(),
+  /** Date, amount, number or supplier were guessed from a plain PDF's text: check them */
+  readFromText: z.boolean(),
   fields: ReceiptFields,
   /** The supplier as the e-invoice names it, for "create company" (#222) */
   supplierMatch: z.object({ id: z.number(), name: z.string() }).nullable()

@@ -6,7 +6,7 @@ import { container } from 'tsyringe'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { PDFDocument } from 'pdf-lib'
+import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { embedFacturX } from '../src/main/einvoice/facturx'
 import { ReceiptService, UNSUPPORTED_RECEIPT_FILE } from '../src/main/services/ReceiptService'
 import { CompanyService } from '../src/main/services/CompanyService'
@@ -46,6 +46,15 @@ const PNG = Uint8Array.from(
 async function plainPdf(): Promise<Uint8Array> {
   const doc = await PDFDocument.create()
   doc.addPage()
+  return doc.save()
+}
+
+/** A PDF whose page holds these lines as text, like an invoice from a word processor */
+async function textPdf(lines: string[]): Promise<Uint8Array> {
+  const doc = await PDFDocument.create()
+  const font = await doc.embedFont(StandardFonts.Helvetica)
+  const page = doc.addPage()
+  lines.forEach((line, i) => page.drawText(line, { x: 50, y: 780 - i * 16, size: 11, font }))
   return doc.save()
 }
 
@@ -132,6 +141,49 @@ describe('receipts', () => {
     await expect(receipts.read(new TextEncoder().encode('<a/>'), 'x.xml')).rejects.toThrow(
       'keine E-Rechnung'
     )
+  })
+
+  it('guesses the fields of a plain PDF from its text, skipping the own company', async () => {
+    const pdf = await textPdf([
+      'Hotel Beispiel GmbH · Musterstraße 1 · 12345 Musterstadt',
+      'Agentur Beispiel GmbH',
+      'Rechnungsnummer: H-2026-17',
+      'Rechnungsdatum: 03.11.2026',
+      'Übernachtung 2 89,00 € 178,00 €',
+      'Gesamtbetrag inkl. 7 % MwSt. 178,00 €'
+    ])
+    const draft = await receipts.read(pdf, 'scan0001.pdf')
+    expect(draft).toMatchObject({ isEInvoice: false, readFromText: true, supplierMatch: null })
+    expect(draft.fields).toMatchObject({
+      receiptDate: '2026-11-03',
+      amountCents: 17800,
+      currency: 'EUR',
+      supplierName: 'Hotel Beispiel GmbH',
+      supplierCompanyId: null,
+      reference: 'H-2026-17',
+      fileName: '2026-11-03 Hotel Beispiel GmbH H-2026-17 Rechnungseingang'
+    })
+  })
+
+  it('links a known supplier by the USt-IdNr. in a plain PDF', async () => {
+    const supplier = await companies.createCompany({
+      name: 'Tontechnik Beispiel GmbH',
+      vatId: 'DE 987 654 321'
+    })
+    const pdf = await textPdf(['Rechnung 2026-55', 'Summe 59,50 EUR', 'USt-IdNr. DE987654321'])
+    const draft = await receipts.read(pdf, 'rechnung.pdf')
+    expect(draft.supplierMatch).toEqual({ id: supplier.id, name: 'Tontechnik Beispiel GmbH' })
+    expect(draft.fields).toMatchObject({
+      supplierCompanyId: supplier.id,
+      supplierName: 'Tontechnik Beispiel GmbH',
+      amountCents: 5950
+    })
+  })
+
+  it('keeps only the file name for a PDF without text (a scan)', async () => {
+    const draft = await receipts.read(await plainPdf(), 'Scan.pdf')
+    expect(draft.readFromText).toBe(false)
+    expect(draft.fields).toMatchObject({ fileName: 'Scan', amountCents: null, receiptDate: null })
   })
 
   it('stores a photo as a one-page PDF under the default company', async () => {

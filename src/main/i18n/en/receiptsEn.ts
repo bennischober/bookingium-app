@@ -12,6 +12,7 @@ export const receiptsEn: Record<string, string> = {
   'Belege gehen unter ihrer Belegart an die DATEV-Adresse der eigenen Firma. Fotos werden als PDF gespeichert.':
     "Receipts go to the own company's DATEV address under their receipt type. Photos are saved as PDF.",
   'wird als PDF gespeichert': 'saved as PDF',
+  'aus dem PDF gelesen, bitte prüfen': 'read from the PDF, please check',
   Dateiname: 'File name',
   'Unter diesem Namen erscheint der Beleg in DATEV.':
     'The receipt appears in DATEV under this name.',

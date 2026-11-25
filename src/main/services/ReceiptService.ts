@@ -11,6 +11,8 @@ import {
   receiptFileName,
   suggestReceiptName
 } from '../receipts/receiptFiles'
+import { hasReceiptTextFields, readReceiptText } from '../receipts/receiptText'
+import { pdfText } from '../einvoice/pdfText'
 import { storeReceiptFile } from '../utils/receiptStorage'
 import { findDocumentFile, getDocumentFullPath } from '../utils/fileStorage'
 import {
@@ -51,7 +53,10 @@ export class ReceiptService {
     @inject(EInvoicePartyRepository) private parties: EInvoicePartyRepository
   ) {}
 
-  /** What a file suggests for a new receipt; an e-invoice fills date, amount and supplier */
+  /**
+   * What a file suggests for a new receipt: an e-invoice fills date, amount and supplier from
+   * its XML; a plain PDF with text gets guesses from that text (#225)
+   */
   async read(bytes: Uint8Array, sourceName: string): Promise<ReceiptDraft> {
     const kind = receiptFileKind(bytes)
     if (!kind) throw new Error(UNSUPPORTED_RECEIPT_FILE)
@@ -60,22 +65,26 @@ export class ReceiptService {
     if (kind === 'xml' && !invoice) {
       throw new Error('Diese XML-Datei ist keine E-Rechnung (ZUGFeRD, Factur-X oder XRechnung).')
     }
-    const supplierMatch = invoice ? this.parties.findCompany(invoice) : null
-    const supplierName = supplierMatch?.name ?? invoice?.name ?? ''
-    const receiptDate = invoice?.issueDate || null
-    const reference = invoice?.invoiceNumber ?? ''
+    const guess = !invoice && kind === 'pdf' ? await this.readText(bytes) : null
+    const supplierMatch = invoice
+      ? this.parties.findCompany(invoice)
+      : (guess?.supplierMatch ?? null)
+    const supplierName = supplierMatch?.name ?? invoice?.name ?? guess?.supplierName ?? ''
+    const receiptDate = invoice?.issueDate || guess?.receiptDate || null
+    const reference = invoice?.invoiceNumber ?? guess?.reference ?? ''
+    const named = invoice !== null || guess !== null
     const fields: ReceiptFields = {
       companyId: null,
       category: 'incoming',
       receiptDate,
-      amountCents: invoice?.totalCents ?? null,
-      currency: invoice?.currency || 'EUR',
+      amountCents: invoice?.totalCents ?? guess?.amountCents ?? null,
+      currency: invoice?.currency || guess?.currency || 'EUR',
       supplierCompanyId: supplierMatch?.id ?? null,
       supplierName,
       reference,
       notes: '',
       inDatev: false,
-      fileName: invoice
+      fileName: named
         ? suggestReceiptName({
             receiptDate,
             supplierName,
@@ -88,8 +97,42 @@ export class ReceiptService {
       sourceName,
       isEInvoice: invoice !== null,
       isImage: kind === 'jpeg' || kind === 'png',
+      readFromText: guess !== null,
       fields,
       supplierMatch: supplierMatch ? { id: supplierMatch.id, name: supplierMatch.name } : null
+    }
+  }
+
+  /**
+   * Guesses from a plain PDF's text, null for a scan or when nothing was found. The supplier is
+   * a known company by USt-IdNr. or name, else the first letterhead name; the own company that
+   * receives the invoice is skipped.
+   */
+  private async readText(bytes: Uint8Array) {
+    const text = await pdfText(bytes)
+    if (!text.trim()) return null
+    const found = readReceiptText(text)
+    if (!hasReceiptTextFields(found)) return null
+    const ownId = this.repository.defaultCompanyId()
+    const known = (party: { name: string; vatId: string }) => {
+      const match = this.parties.findCompany({ ...party, taxNumber: '' })
+      return match && match.id !== ownId ? match : null
+    }
+    const own = (name: string) => {
+      const match = this.parties.findCompany({ name, vatId: '', taxNumber: '' })
+      return match !== null && match.id === ownId
+    }
+    const supplierMatch =
+      found.vatIds.map((vatId) => known({ name: '', vatId })).find(Boolean) ??
+      found.supplierNames.map((name) => known({ name, vatId: '' })).find(Boolean) ??
+      null
+    return {
+      receiptDate: found.receiptDate,
+      amountCents: found.amountCents,
+      currency: found.currency,
+      reference: found.reference,
+      supplierName: found.supplierNames.find((name) => !own(name)) ?? '',
+      supplierMatch
     }
   }
 
