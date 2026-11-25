@@ -13,6 +13,9 @@ export const receiptsEn: Record<string, string> = {
     "Receipts go to the own company's DATEV address under their receipt type. Photos are saved as PDF.",
   'wird als PDF gespeichert': 'saved as PDF',
   'aus dem PDF gelesen, bitte prüfen': 'read from the PDF, please check',
+  '„{{name}}“ ist noch keine Firma in Bookingium.':
+    '“{{name}}” is not a company in Bookingium yet.',
+  'Als Firma anlegen': 'Create as company',
   Dateiname: 'File name',
   'Unter diesem Namen erscheint der Beleg in DATEV.':
     'The receipt appears in DATEV under this name.',

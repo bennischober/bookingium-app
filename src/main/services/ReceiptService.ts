@@ -98,6 +98,7 @@ export class ReceiptService {
       isEInvoice: invoice !== null,
       isImage: kind === 'jpeg' || kind === 'png',
       readFromText: guess !== null,
+      supplierVatId: invoice?.vatId || guess?.supplierVatId || '',
       fields,
       supplierMatch: supplierMatch ? { id: supplierMatch.id, name: supplierMatch.name } : null
     }
@@ -105,33 +106,45 @@ export class ReceiptService {
 
   /**
    * Guesses from a plain PDF's text, null for a scan or when nothing was found. The supplier is
-   * a known company by USt-IdNr. or name, else the first letterhead name; the own company that
-   * receives the invoice is skipped.
+   * a known company by USt-IdNr. or name, else the first name with a legal form. The receiving
+   * side is skipped: the default company and any company named by a recipient's USt-IdNr.
    */
   private async readText(bytes: Uint8Array) {
     const text = await pdfText(bytes)
     if (!text.trim()) return null
     const found = readReceiptText(text)
     if (!hasReceiptTextFields(found)) return null
-    const ownId = this.repository.defaultCompanyId()
-    const known = (party: { name: string; vatId: string }) => {
-      const match = this.parties.findCompany({ ...party, taxNumber: '' })
-      return match && match.id !== ownId ? match : null
+    const byVat = (vatId: string) => this.parties.findCompany({ name: '', vatId, taxNumber: '' })
+    const byName = (name: string) => this.parties.findCompany({ name, vatId: '', taxNumber: '' })
+    const ownIds = new Set<number>()
+    const defaultId = this.repository.defaultCompanyId()
+    if (defaultId !== null) ownIds.add(defaultId)
+    for (const vatId of found.recipientVatIds) {
+      const match = byVat(vatId)
+      if (match) ownIds.add(match.id)
     }
-    const own = (name: string) => {
-      const match = this.parties.findCompany({ name, vatId: '', taxNumber: '' })
-      return match !== null && match.id === ownId
-    }
+    const notOwn = <T extends { id: number } | null>(match: T): T | null =>
+      match && !ownIds.has(match.id) ? match : null
+    const supplierVatIds = found.supplierVatIds.filter((vatId) => {
+      const match = byVat(vatId)
+      return !match || !ownIds.has(match.id)
+    })
     const supplierMatch =
-      found.vatIds.map((vatId) => known({ name: '', vatId })).find(Boolean) ??
-      found.supplierNames.map((name) => known({ name, vatId: '' })).find(Boolean) ??
+      supplierVatIds.map((vatId) => notOwn(byVat(vatId))).find(Boolean) ??
+      found.supplierNames.map((name) => notOwn(byName(name))).find(Boolean) ??
       null
+    const supplierName =
+      found.supplierNames.find((name) => {
+        const match = byName(name)
+        return !match || !ownIds.has(match.id)
+      }) ?? ''
     return {
       receiptDate: found.receiptDate,
       amountCents: found.amountCents,
       currency: found.currency,
       reference: found.reference,
-      supplierName: found.supplierNames.find((name) => !own(name)) ?? '',
+      supplierName,
+      supplierVatId: supplierVatIds[0] ?? '',
       supplierMatch
     }
   }

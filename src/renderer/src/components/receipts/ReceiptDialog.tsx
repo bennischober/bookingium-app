@@ -80,6 +80,17 @@ export function ReceiptDialog({
     }
   })
 
+  // A plain receipt's supplier becomes a company from the typed name and the USt-IdNr. found
+  const createSupplier = trpcReact.company.create.useMutation({
+    onSuccess: (company) => {
+      void utils.company.invalidate()
+      set({ supplierCompanyId: company.id })
+      toast.success(t('Firma angelegt'), { description: company.name })
+    },
+    onError: (error) =>
+      toast.error(t('Firma konnte nicht angelegt werden'), { description: error.message })
+  })
+
   const done = (saved: ReceiptDto, message: string) => {
     void utils.receipt.invalidate()
     toast.success(message, { description: saved.fileName })
@@ -349,6 +360,30 @@ export function ReceiptDialog({
                 <Button variant="outline" size="sm" onClick={() => setCreatingCompany(true)}>
                   <Building2 className="h-4 w-4" />
                   {t('Firma aus E-Rechnung anlegen…')}
+                </Button>
+              </div>
+            )}
+
+            {!draft?.isEInvoice && !state.supplierCompanyId && state.supplierName.trim() && (
+              <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed p-3 text-sm">
+                <span className="flex-1 text-muted-foreground">
+                  {t('„{{name}}“ ist noch keine Firma in Bookingium.', {
+                    name: state.supplierName.trim()
+                  })}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={createSupplier.isPending}
+                  onClick={() =>
+                    createSupplier.mutate({
+                      name: state.supplierName.trim(),
+                      vatId: draft?.supplierVatId ?? ''
+                    })
+                  }
+                >
+                  <Building2 className="h-4 w-4" />
+                  {t('Als Firma anlegen')}
                 </Button>
               </div>
             )}
