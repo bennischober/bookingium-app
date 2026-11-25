@@ -1,6 +1,12 @@
 // #254: English UI texts of lib, keyed by the German source string (see ../translate.ts)
 
 export const libEn: Record<string, string> = {
+  'Marketing-Atlas: Der Import erkennt Kontakte zuerst an der E-Mail, zeigt vorher, was neu, geändert, weggefallen oder umbenannt ist, und lässt sich einmal rückgängig machen. Gibt es einen Namen mehrfach, wählt man den passenden Eintrag selbst.':
+    'Marketing atlas: the import recognises contacts by email first, shows beforehand what is new, changed, dropped or renamed, and can be undone once. If a name exists several times, you pick the right entry yourself.',
+  'Atlas-Liste mit Filtern (Priorität, Land, Qualität, Kontakt, Maßnahme), Sortierung, Mehrfachauswahl für den Status, CSV-Export und einer Karte. „Nachfassen“ markiert Anfragen, die seit 14 Tagen offen sind. Im Marketing-Tab steht jetzt „Maßnahmen“ vorn.':
+    'Atlas list with filters (priority, country, quality, contact, measure), sorting, multiple selection for the status, CSV export and a map. “Follow up” marks requests open for 14 days. The marketing tab now shows “Measures” first.',
+  'Dashboard › Offene Punkte: „Auswählen“ markiert mehrere oder alle Punkte auf einmal als extern erledigt, mit „Rückgängig“. Auf der Seite des Events lässt sich jeder Haken wieder entfernen, z. B. wenn doch noch eine Abrechnung kommt.':
+    'Dashboard › Open points: “Select” marks several or all points as done externally at once, with “Undo”. Each tick can be removed again on the event page, e.g. if a settlement still comes in.',
   'Releases (Menü Planung): die Labelcopy jedes Releases an einem Ort – Produkte mit UPC/EAN und Katalognummer, Tracks mit ISRC und Dauer, Credits und die Urheber mit ihren Anteilen. Jede Band hat dazu einen Tab „Releases“.':
     'Releases (Planning menu): the label copy of every release in one place – products with UPC/EAN and catalogue number, tracks with ISRC and duration, credits and the writers with their shares. Every band has a “Releases” tab for it.',
   'Labelcopy einlesen: Excel-Vorlagen von Labels und der PDF-Report von OpenPlay werden gelesen. Eine Vorschau zeigt, was neu ist und was abweicht; das passende Release wird über UPC, Katalognummer oder ISRC gefunden und die Datei am Release abgelegt.':
