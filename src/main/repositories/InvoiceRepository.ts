@@ -452,7 +452,7 @@ export class InvoiceRepository {
   }
 
   /** Changes only the status; assigns the number when a draft is issued */
-  async setStatus(id: number, status: InvoiceStatus) {
+  async setStatus(id: number, status: InvoiceStatus, datevCancellationNumber?: number) {
     return db.transaction((tx) => {
       const existing = tx
         .select()
@@ -476,7 +476,7 @@ export class InvoiceRepository {
         existing.kind === 'invoice' &&
         existing.invoice_number !== null
       ) {
-        createCancellationTx(tx, existing)
+        createCancellationTx(tx, existing, datevCancellationNumber)
       }
       return this.loadInvoiceWithRelationsTx(tx, id)
     })

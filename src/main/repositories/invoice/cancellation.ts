@@ -2,7 +2,7 @@ import { schema } from '../../db/schema'
 import type { Tx } from '../tx'
 import { logStatusTx } from './history'
 import { lineItemsOf } from './lineItems'
-import { takeNextInvoiceNumber } from './numbering'
+import { claimDatevInvoiceNumber, takeNextInvoiceNumber } from './numbering'
 
 type InvoiceRow = typeof schema.invoice.$inferSelect
 
@@ -16,15 +16,28 @@ function germanDate(iso: string): string {
  * The Stornorechnung of a cancelled invoice: its own next number, the
  * same (frozen) parties and lines with negated quantities and amounts, so
  * the two add up to zero. Issued right away; it never changes.
+ *
+ * An invoice written in DATEV is cancelled in DATEV as well: its Stornorechnung takes the
+ * number DATEV gave the Storno and, like the original, is not handed over to DATEV again.
  */
-export function createCancellationTx(tx: Tx, original: InvoiceRow) {
+export function createCancellationTx(
+  tx: Tx,
+  original: InvoiceRow,
+  datevCancellationNumber?: number
+) {
   const lines = lineItemsOf(tx, original.id)
   const today = new Date().toISOString().slice(0, 10)
+  const inDatev = original.created_in_datev
+  if (inDatev && !datevCancellationNumber) {
+    throw new Error('Bitte die Nummer der Stornorechnung aus DATEV eintragen.')
+  }
 
   const [created] = tx
     .insert(schema.invoice)
     .values({
-      invoice_number: takeNextInvoiceNumber(tx, original.company_id, today),
+      invoice_number: inDatev
+        ? claimDatevInvoiceNumber(tx, original.company_id, datevCancellationNumber as number)
+        : takeNextInvoiceNumber(tx, original.company_id, today),
       company_id: original.company_id,
       issuer_snapshot_id: original.issuer_snapshot_id,
       recipient_snapshot_id: original.recipient_snapshot_id,
@@ -45,6 +58,7 @@ export function createCancellationTx(tx: Tx, original: InvoiceRow) {
       xrechnung: original.xrechnung,
       kind: 'cancellation',
       cancels_invoice_id: original.id,
+      created_in_datev: inDatev,
       notes: ''
     })
     .returning()

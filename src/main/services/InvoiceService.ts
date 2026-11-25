@@ -99,10 +99,21 @@ export class InvoiceService {
    * Status-only change (issue, mark paid/overdue, Storno). Cancelling an
    * issued invoice also creates its Stornorechnung.
    */
-  async setInvoiceStatus(id: number, status: InvoiceStatus) {
+  async setInvoiceStatus(id: number, status: InvoiceStatus, datevCancellationNumber?: number) {
     const existing = await this.requireInvoice(id)
     this.assertStatusChange(existing.status as InvoiceStatus, status, existing.kind as InvoiceKind)
-    const updated = await this.invoiceRepository.setStatus(id, status)
+    // An invoice written in DATEV is cancelled there too: its Stornorechnung takes DATEV's number
+    if (
+      status === 'cancelled' &&
+      existing.status !== 'cancelled' &&
+      existing.created_in_datev &&
+      !datevCancellationNumber
+    ) {
+      throw new Error(
+        'Die Rechnung wurde in DATEV erstellt – bitte die Nummer der Stornorechnung aus DATEV eintragen.'
+      )
+    }
+    const updated = await this.invoiceRepository.setStatus(id, status, datevCancellationNumber)
     scheduleFollowUpCalendarUpdate()
     return updated
   }

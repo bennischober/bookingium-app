@@ -157,5 +157,8 @@ export const invoiceEn: Record<string, string> = {
     'Issued invoices in euros get a QR code below the total with recipient, IBAN, amount and invoice number as reference. Without a valid IBAN of the own company, and for drafts, cancelled invoices and cancellation invoices, it is left out.',
   Rechnungen: 'Invoices',
   'Nr.': 'No.',
-  Betrag: 'Amount'
+  Betrag: 'Amount',
+  'Diese Rechnung wurde in DATEV erstellt. Bitte stornieren Sie sie auch in DATEV und tragen Sie hier die Nummer der Stornorechnung aus DATEV ein. Die Stornorechnung wird dann nicht von hier an DATEV übergeben. Das lässt sich nicht rückgängig machen.':
+    'This invoice was created in DATEV. Please cancel it in DATEV as well and enter the number of the cancellation invoice from DATEV here. The cancellation invoice will then not be handed over to DATEV from here. This cannot be undone.',
+  'Nummer der Stornorechnung aus DATEV': 'Number of the cancellation invoice from DATEV'
 }
