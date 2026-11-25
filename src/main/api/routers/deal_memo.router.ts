@@ -25,6 +25,18 @@ export const dealMemoRouter = t.router({
       }
     }),
 
+  /** The calendar's events from `from` to `to`, all of them (the paged list stops at 100) */
+  listBetween: t.procedure
+    .input(z.object({ from: z.iso.date(), to: z.iso.date() }))
+    .query(async ({ input }) =>
+      DealMemoMapper.toListItemDtoList(
+        await dealMemoService.listDealMemosBetween(input.from, input.to)
+      )
+    ),
+
+  /** Every tour an event names, for the calendar's tour filter */
+  listTours: t.procedure.query(() => dealMemoService.listTours()),
+
   /** A band's events, newest first (band page) */
   listByBand: t.procedure.input(z.number()).query(async ({ input }) => {
     return DealMemoMapper.toListItemDtoList(await dealMemoService.listDealMemosByBand(input))

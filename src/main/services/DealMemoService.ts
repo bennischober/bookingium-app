@@ -17,6 +17,15 @@ export class DealMemoService {
     return await this.dealMemoRepository.getAllPaginated(pagination)
   }
 
+  /** The calendar's events in a date range (yyyy-MM-dd) */
+  async listDealMemosBetween(from: string, to: string) {
+    return await this.dealMemoRepository.listBetween(from, to)
+  }
+
+  async listTours() {
+    return await this.dealMemoRepository.listTours()
+  }
+
   async listDealMemosByBand(bandId: number) {
     return await this.dealMemoRepository.listByBand(bandId)
   }

@@ -424,6 +424,18 @@ export const settingsEn: Record<string, string> = {
   'bis {{time}}': 'until {{time}}',
   'Abonnierte Kalender': 'Subscribed calendars',
   'Abonnierte Kalender an diesem Tag': 'Subscribed calendars on this day',
+  // The calendar page's filter
+  'Kalender anzeigen': 'Show calendars',
+  'Alle Kalender': 'All calendars',
+  'Kalender suchen…': 'Search calendars…',
+  'Bands anzeigen': 'Show bands',
+  'Alle Bands': 'All bands',
+  'Band suchen…': 'Search bands…',
+  'Touren anzeigen': 'Show tours',
+  'Tour suchen…': 'Search tours…',
+  'Noch keine Tour bei einem Event eingetragen.': 'No event names a tour yet.',
+  'Nur Events der Auswahl. Termine, Wiedervorlagen und abonnierte Kalender gehören zu keiner Band und keiner Tour – unter „Kalender“ lassen sie sich dazuwählen.':
+    'Only events of the selection. Appointments, follow-ups and subscribed calendars belong to no band or tour – add them under “Calendars”.',
   '(ohne Titel)': '(no title)',
   'Adresse kopiert': 'Address copied',
   'Link konnte nicht geprüft werden': 'Link could not be checked',

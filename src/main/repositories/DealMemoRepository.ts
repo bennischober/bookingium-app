@@ -4,10 +4,13 @@ import {
   asc,
   desc,
   eq,
+  gte,
   inArray,
   isNull,
   isNotNull,
   like,
+  lte,
+  ne,
   or,
   sql,
   type SQL
@@ -107,6 +110,21 @@ export class DealMemoRepository {
       venue: row.venue,
       venueCity: row.address?.city ?? null
     }))
+  }
+
+  /** Events from `from` to `to` (yyyy-MM-dd, both included), for the calendar: all of them */
+  async listBetween(from: string, to: string) {
+    return this.listWhere(and(gte(schema.deal_memo.date, from), lte(schema.deal_memo.date, to)))
+  }
+
+  /** The tours events name, sorted; archived events count too (a tour may be over) */
+  async listTours(): Promise<string[]> {
+    const rows = await db
+      .selectDistinct({ tour: schema.deal_memo.tour })
+      .from(schema.deal_memo)
+      .where(ne(schema.deal_memo.tour, ''))
+      .orderBy(asc(schema.deal_memo.tour))
+    return rows.map((row) => row.tour)
   }
 
   /** A band's events, newest first */

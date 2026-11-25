@@ -27,6 +27,15 @@ import { appointmentsByDay } from '@/components/appointments/appointmentDays'
 import { AgencyBookingList } from '@/components/agency/AgencyBookingList'
 import { SubscribedEntryList } from '@/components/calendar/SubscribedEntryList'
 import { subscribedByDay } from '@/components/calendar/subscribedDays'
+import { CalendarFilterBar } from '@/components/calendar/CalendarFilterBar'
+import {
+  filterAgencyBookings,
+  filterEvents,
+  filterSubscribed,
+  parseCalendarFilter,
+  showsSource,
+  type CalendarFilter
+} from '@/components/calendar/calendarFilter'
 import { cn } from '@/lib/utils'
 import { trpcReact } from '@/lib/trpc'
 import type { FollowUpDto } from '../../../main/api/schemas/followUp.schema'
@@ -35,6 +44,17 @@ import { getLanguage, t } from '../../../main/i18n/translate'
 // #254: day and month names and the date pattern in the UI language
 const DATE_LOCALE = getLanguage() === 'en' ? enGB : de
 const DATE_PATTERN = t('dd.MM.yyyy')
+
+// The chosen calendars, artists and tours stay until changed, also after a restart
+const FILTER_KEY = 'calendar.filter'
+
+function storedFilter(): CalendarFilter {
+  try {
+    return parseCalendarFilter(localStorage.getItem(FILTER_KEY))
+  } catch {
+    return parseCalendarFilter(null)
+  }
+}
 
 const STATUS_STYLES: Record<string, string> = {
   confirmed: 'bg-green-100 text-green-800 border-green-200',
@@ -56,6 +76,15 @@ export default function CalendarPage() {
   const [wizardOpen, setWizardOpen] = useState(false)
   const [followUpOpen, setFollowUpOpen] = useState(false)
   const [appointmentOpen, setAppointmentOpen] = useState(false)
+  const [filter, setFilterState] = useState<CalendarFilter>(storedFilter)
+  const setFilter = (next: CalendarFilter) => {
+    setFilterState(next)
+    try {
+      localStorage.setItem(FILTER_KEY, JSON.stringify(next))
+    } catch {
+      // Storage full or off: the filter still applies until the page closes
+    }
+  }
 
   // #71: an appointment's reminder opens the calendar on its day (?day=); taken over once, then
   // dropped from the URL, so the same day can be asked for again
@@ -75,56 +104,7 @@ export default function CalendarPage() {
     if (requestedDay) void navigate({ to: '/calendar', search: {}, replace: true })
   }, [requestedDay, navigate])
 
-  const events = trpcReact.dealMemo.getAllPaginated.useQuery({
-    page: 1,
-    pageSize: 100,
-    search: undefined
-  })
-
-  // #52: open follow-ups (Wiedervorlagen) on their due day, next to the events
-  const followUps = trpcReact.followUp.listOpen.useQuery()
-  const followUpsByDay = useMemo(() => {
-    const byDay = new Map<string, FollowUpDto[]>()
-    for (const followUp of followUps.data ?? []) {
-      byDay.set(followUp.dueDate, [...(byDay.get(followUp.dueDate) ?? []), followUp])
-    }
-    return byDay
-  }, [followUps.data])
-
-  const eventsWithParsedDate = useMemo(() => {
-    return (events.data?.items ?? [])
-      .map((event) => ({
-        ...event,
-        parsedDate: parseISO(event.date)
-      }))
-      .filter((event) => !Number.isNaN(event.parsedDate.getTime()))
-      .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime())
-  }, [events.data])
-
   const activeMonthDate = useMemo(() => startOfMonth(calendarMonth), [calendarMonth])
-
-  const selectedDayEvents = useMemo(
-    () => eventsWithParsedDate.filter((event) => isSameDay(event.parsedDate, selectedDate)),
-    [eventsWithParsedDate, selectedDate]
-  )
-
-  const filteredEvents = useMemo(() => {
-    if (viewMode === 'day') return selectedDayEvents
-
-    if (viewMode === 'week') {
-      const start = startOfWeek(selectedDate, { weekStartsOn: 1 })
-      const end = endOfWeek(selectedDate, { weekStartsOn: 1 })
-      return eventsWithParsedDate.filter((event) =>
-        isWithinInterval(event.parsedDate, { start, end })
-      )
-    }
-
-    const start = startOfMonth(activeMonthDate)
-    const end = endOfMonth(activeMonthDate)
-    return eventsWithParsedDate.filter((event) =>
-      isWithinInterval(event.parsedDate, { start, end })
-    )
-  }, [eventsWithParsedDate, selectedDayEvents, selectedDate, viewMode, activeMonthDate])
 
   // The days of the chosen range, as yyyy-MM-dd
   const range = useMemo(() => {
@@ -156,12 +136,68 @@ export default function CalendarPage() {
       to: range.end > gridEnd ? range.end : gridEnd
     }
   }, [calendarMonth, range])
+
+  // Every event on the days shown (the paged list would stop at 100)
+  const events = trpcReact.dealMemo.listBetween.useQuery(
+    { from: appointmentRange.from, to: appointmentRange.to },
+    { keepPreviousData: true }
+  )
+
+  // #52: open follow-ups (Wiedervorlagen) on their due day, next to the events
+  const followUps = trpcReact.followUp.listOpen.useQuery()
+  const followUpsByDay = useMemo(() => {
+    const byDay = new Map<string, FollowUpDto[]>()
+    if (!showsSource(filter, 'followUps')) return byDay
+    for (const followUp of followUps.data ?? []) {
+      byDay.set(followUp.dueDate, [...(byDay.get(followUp.dueDate) ?? []), followUp])
+    }
+    return byDay
+  }, [followUps.data, filter])
+
+  const eventsWithParsedDate = useMemo(() => {
+    return filterEvents(events.data ?? [], filter)
+      .map((event) => ({
+        ...event,
+        parsedDate: parseISO(event.date)
+      }))
+      .filter((event) => !Number.isNaN(event.parsedDate.getTime()))
+      .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime())
+  }, [events.data, filter])
+
+  const selectedDayEvents = useMemo(
+    () => eventsWithParsedDate.filter((event) => isSameDay(event.parsedDate, selectedDate)),
+    [eventsWithParsedDate, selectedDate]
+  )
+
+  const filteredEvents = useMemo(() => {
+    if (viewMode === 'day') return selectedDayEvents
+
+    if (viewMode === 'week') {
+      const start = startOfWeek(selectedDate, { weekStartsOn: 1 })
+      const end = endOfWeek(selectedDate, { weekStartsOn: 1 })
+      return eventsWithParsedDate.filter((event) =>
+        isWithinInterval(event.parsedDate, { start, end })
+      )
+    }
+
+    const start = startOfMonth(activeMonthDate)
+    const end = endOfMonth(activeMonthDate)
+    return eventsWithParsedDate.filter((event) =>
+      isWithinInterval(event.parsedDate, { start, end })
+    )
+  }, [eventsWithParsedDate, selectedDayEvents, selectedDate, viewMode, activeMonthDate])
+
   const appointments = trpcReact.appointment.listBetween.useQuery(appointmentRange, {
     keepPreviousData: true
   })
   const appointmentsOnDay = useMemo(
-    () => appointmentsByDay(appointments.data ?? [], appointmentRange.from, appointmentRange.to),
-    [appointments.data, appointmentRange]
+    () =>
+      appointmentsByDay(
+        showsSource(filter, 'appointments') ? (appointments.data ?? []) : [],
+        appointmentRange.from,
+        appointmentRange.to
+      ),
+    [appointments.data, appointmentRange, filter]
   )
 
   // #103: shows other agencies booked, on the same days - read-only, cancelled ones struck through
@@ -171,11 +207,11 @@ export default function CalendarPage() {
   const agencyData = agencyBookings.data
   const agencyOnDay = useMemo(() => {
     const byDay = new Map<string, NonNullable<typeof agencyData>>()
-    for (const booking of agencyData ?? []) {
+    for (const booking of filterAgencyBookings(agencyData ?? [], filter)) {
       byDay.set(booking.date, [...(byDay.get(booking.date) ?? []), booking])
     }
     return byDay
-  }, [agencyData])
+  }, [agencyData, filter])
 
   // #53: entries of subscribed calendars (read-only); refreshed in the background every half
   // hour, so the page asks again now and then
@@ -184,8 +220,13 @@ export default function CalendarPage() {
     refetchInterval: 2 * 60_000
   })
   const subscribedOnDay = useMemo(
-    () => subscribedByDay(subscribed.data ?? [], appointmentRange.from, appointmentRange.to),
-    [subscribed.data, appointmentRange]
+    () =>
+      subscribedByDay(
+        filterSubscribed(subscribed.data ?? [], filter),
+        appointmentRange.from,
+        appointmentRange.to
+      ),
+    [subscribed.data, appointmentRange, filter]
   )
 
   const groupedAgenda = useMemo(() => {
@@ -243,6 +284,8 @@ export default function CalendarPage() {
           )}
         </p>
       </div>
+
+      <CalendarFilterBar filter={filter} onChange={setFilter} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[420px_minmax(0,1fr)]">
         <Card className="h-fit">
