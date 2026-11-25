@@ -28,9 +28,9 @@ export const TIPS = {
     )
   },
   marketing: {
-    title: t('Atlas und Maßnahmen'),
+    title: t('Maßnahmen und Atlas'),
     text: t(
-      'Der Atlas ist die Recherche (Radios, Presse, Festivals …), er wird aus einer Datei eingespielt und über „Atlas aktualisieren…“ erneuert, ohne Status und Notizen zu verlieren. Maßnahmen sind, was gebucht ist (Radiospots, Plakate …), mit Kosten, Beleg und Rechnung.'
+      'Maßnahmen sind, was gebucht ist (Radiospots, Plakate …), mit Kosten, Beleg und Rechnung. Der Atlas ist die Recherche (Radios, Presse, Festivals …), er wird aus einer Datei eingespielt und über „Atlas aktualisieren…“ erneuert, ohne Status und Notizen zu verlieren.'
     )
   },
   invoices: {

@@ -119,9 +119,9 @@ export const libEn: Record<string, string> = {
   'Wo passt noch eine Show?': 'Where does another show fit?',
   '„Alle Kreise hervorheben“ füllt jeden Gebietsschutz halb durchsichtig. Wo sich Kreise überlappen, wird es dunkler; wo die Karte frei bleibt, blockiert keine Show. „Anfrage prüfen“ zeigt für einen Club und ein Datum, was eine Buchung blockieren würde.':
     '“Highlight all circles” fills every radius clause semi-transparently. Where circles overlap, it gets darker; where the map stays clear, no show blocks. “Check request” shows for a club and a date what a booking would block.',
-  'Atlas und Maßnahmen': 'Atlas and actions',
-  'Der Atlas ist die Recherche (Radios, Presse, Festivals …), er wird aus einer Datei eingespielt und über „Atlas aktualisieren…“ erneuert, ohne Status und Notizen zu verlieren. Maßnahmen sind, was gebucht ist (Radiospots, Plakate …), mit Kosten, Beleg und Rechnung.':
-    'The atlas is the research (radios, press, festivals …); it is loaded from a file and renewed via “Update atlas…” without losing status and notes. Actions are what is booked (radio spots, posters …), with costs, receipt and invoice.',
+  'Maßnahmen und Atlas': 'Actions and atlas',
+  'Maßnahmen sind, was gebucht ist (Radiospots, Plakate …), mit Kosten, Beleg und Rechnung. Der Atlas ist die Recherche (Radios, Presse, Festivals …), er wird aus einer Datei eingespielt und über „Atlas aktualisieren…“ erneuert, ohne Status und Notizen zu verlieren.':
+    'Actions are what is booked (radio spots, posters …), with costs, receipt and invoice. The atlas is the research (radios, press, festivals …); it is loaded from a file and renewed via “Update atlas…” without losing status and notes.',
   'Rechnungen aus DATEV': 'Invoices from DATEV',
   'Ist eine Rechnung schon in DATEV geschrieben, im Formular „Rechnung schon in DATEV erstellt“ wählen und die DATEV-Nummer eintragen. Bookingium zählt danach oberhalb weiter, so gibt es keine Nummer doppelt.':
     'If an invoice has already been written in DATEV, choose “Invoice already created in DATEV” in the form and enter the DATEV number. Bookingium then continues counting above it, so no number appears twice.',

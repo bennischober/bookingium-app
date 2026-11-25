@@ -21,3 +21,12 @@ export const BAND_TAB_ALIASES: Partial<Record<string, BandTab>> = {
   members: 'overview',
   contracts: 'invoices'
 }
+
+// The two views of the band's Marketing tab, kept in the URL (?tab=marketing&view=atlas);
+// without `view` the measures show
+export const MARKETING_VIEWS = ['actions', 'atlas'] as const
+export type MarketingView = (typeof MARKETING_VIEWS)[number]
+
+export function isMarketingView(value: unknown): value is MarketingView {
+  return typeof value === 'string' && (MARKETING_VIEWS as readonly string[]).includes(value)
+}
