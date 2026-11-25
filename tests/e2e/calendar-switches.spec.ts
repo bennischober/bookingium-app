@@ -1,6 +1,6 @@
 // E2E: the calendar switches in Einstellungen › Kalender turn off again. electron-trpc 0.7.1 took
 // a falsy input (false, 0, '', null) for no input at all, so turning a switch off failed with
-// "erwartet boolean, erhalten undefined"; patches/electron-trpc@0.7.1.patch fixes that.
+// "erwartet boolean, erhalten undefined"; the electron-trpc patch in patches/ fixes that.
 import { test, expect } from '@playwright/test'
 import { launchApp, type AppHandle } from './helpers/launch'
 
