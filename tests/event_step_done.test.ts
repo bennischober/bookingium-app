@@ -120,4 +120,45 @@ describe('steps done outside the program', () => {
       keyOf('event_step_done', { deal_memo_id: 4, step: 'hotel', id: 99 })
     )
   })
+
+  it('ticks several open points at once and undoes exactly those', async () => {
+    const first = event({ contract_sent_at: '2026-11-01', status: 'confirmed', date: '2026-11-10' })
+    const second = event({ contract_sent_at: '2026-11-02' })
+    steps().set({ eventId: first, step: 'contract', done: true })
+
+    const { changed } = steps().setMany({
+      steps: [
+        { eventId: first, step: 'contract' },
+        { eventId: first, step: 'invoice' },
+        { eventId: first, step: 'invoice' },
+        { eventId: second, step: 'contract' }
+      ],
+      done: true
+    })
+    // the contract of the first was ticked already, the invoice twice counts once
+    expect(changed).toEqual([
+      { eventId: first, step: 'invoice' },
+      { eventId: second, step: 'contract' }
+    ])
+    expect(await kinds(first)).toEqual([])
+    expect(await kinds(second)).toEqual([])
+
+    steps().setMany({ steps: changed, done: false })
+    expect(await kinds(first)).toEqual(['invoice'])
+    expect(await kinds(second)).toEqual(['contract'])
+  })
+
+  it('saves nothing when one event of several is unknown', () => {
+    const id = event()
+    expect(() =>
+      steps().setMany({
+        steps: [
+          { eventId: id, step: 'hotel' },
+          { eventId: 999999, step: 'hotel' }
+        ],
+        done: true
+      })
+    ).toThrow('Event nicht gefunden')
+    expect(steps().list(id)).toEqual([])
+  })
 })

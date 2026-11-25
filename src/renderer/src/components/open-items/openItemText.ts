@@ -70,3 +70,8 @@ export function openItemText(item: OpenItemDto, today: string): string {
           })
   }
 }
+
+/** A row's key: the deposits of an event are one row each */
+export function openItemKey(item: OpenItemDto): string {
+  return `${item.kind}-${item.eventId}-${item.depositPosition ?? ''}`
+}

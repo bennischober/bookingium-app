@@ -29,3 +29,21 @@ export const SetEventStepInput = z.object({
   done: z.boolean()
 })
 export type SetEventStepInput = z.infer<typeof SetEventStepInput>
+
+/** One step of one show */
+export const EventStepRef = z.object({ eventId: z.number().int().positive(), step: EventStep })
+export type EventStepRef = z.infer<typeof EventStepRef>
+
+/**
+ * Tick (done: true) or untick several steps at once, e.g. the open points selected on the
+ * dashboard; all are saved or none
+ */
+export const SetManyEventStepsInput = z.object({
+  steps: z.array(EventStepRef).min(1).max(5000),
+  done: z.boolean()
+})
+export type SetManyEventStepsInput = z.infer<typeof SetManyEventStepsInput>
+
+/** The steps that changed: undoing them puts back exactly what was before */
+export const SetManyEventStepsResult = z.object({ changed: z.array(EventStepRef) })
+export type SetManyEventStepsResult = z.infer<typeof SetManyEventStepsResult>
