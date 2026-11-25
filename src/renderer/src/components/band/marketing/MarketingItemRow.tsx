@@ -25,6 +25,7 @@ import {
   type MarketingItemDto
 } from '../../../../../main/api/schemas/marketing.schema'
 import { t } from '../../../../../main/i18n/translate'
+import { daysSince, isOverdue } from './marketingFilters'
 
 /** Categories whose entries can become a company or venue */
 const CONTACT_CATEGORIES = new Set(['radios', 'podcasts', 'presse', 'clubs', 'festivals'])
@@ -61,8 +62,19 @@ const KIND_OF: Partial<Record<MarketingCategory, MarketingActionKind>> = {
   clubs: 'poster'
 }
 
-/** One atlas entry: summary line, status, the linked contact; details on click */
-export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
+/**
+ * One atlas entry: summary line, status, the linked contact; details on click. With `onSelect`
+ * a check box puts it into the multiple selection.
+ */
+export function MarketingItemRow({
+  item,
+  selected = false,
+  onSelect
+}: {
+  item: MarketingItemDto
+  selected?: boolean
+  onSelect?: (selected: boolean) => void
+}) {
   const utils = trpcReact.useUtils()
   const [open, setOpen] = useState(false)
   const [note, setNote] = useState(item.statusNote)
@@ -79,6 +91,8 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
     },
     onError: (error) => toast.error(t('Nicht gespeichert'), { description: error.message })
   })
+  const days = daysSince(item.statusDate)
+  const overdue = isOverdue(item)
   const link = trpcReact.marketing.linkContact.useMutation({
     onSuccess: async () => {
       await utils.invalidate()
@@ -97,6 +111,15 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
       )}
     >
       <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
+        {onSelect && (
+          <input
+            type="checkbox"
+            className="mt-1.5 h-4 w-4 shrink-0 accent-primary"
+            aria-label={t('{{name}} auswählen', { name: item.name })}
+            checked={selected}
+            onChange={(event) => onSelect(event.target.checked)}
+          />
+        )}
         <span
           className={cn(
             'grid size-7 shrink-0 place-items-center rounded border text-sm font-semibold',
@@ -123,6 +146,20 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
             {item.type && <span>{item.type}</span>}
             <span>{MARKETING_QUALITY_LABELS[item.quality]}</span>
             {!item.inAtlas && <span>{t('nicht mehr im Atlas')}</span>}
+            {item.status !== 'open' && days !== null && (
+              <span
+                className={cn(overdue && 'font-medium text-amber-700 dark:text-amber-400')}
+                title={overdue ? t('Nachfassen: seit Anfrage keine Antwort') : undefined}
+              >
+                {overdue
+                  ? t('Nachfassen · seit {{days}} Tagen angefragt', { days })
+                  : days === 0
+                    ? t('Status seit heute')
+                    : days === 1
+                      ? t('Status seit gestern')
+                      : t('Status seit {{days}} Tagen', { days })}
+              </span>
+            )}
             {item.actionStatus && (
               <span className="font-medium text-foreground">
                 {t('Maßnahme:')} {MARKETING_ACTION_STATUS_LABELS[item.actionStatus]}
@@ -152,6 +189,39 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
             >
               {item.venueName}
             </Link>
+          ) : item.candidates.length > 1 ? (
+            <Select
+              onValueChange={(value) => {
+                const [kind, id] = value.split(':')
+                link.mutate(
+                  kind === 'company'
+                    ? { id: item.id, companyId: Number(id) }
+                    : { id: item.id, venueId: Number(id) }
+                )
+              }}
+            >
+              <SelectTrigger
+                className="h-8 w-48 text-xs"
+                aria-label={t('Kontakt für {{name}} wählen', { name: item.name })}
+              >
+                <SelectValue
+                  placeholder={t('{{count}} gleichnamige – wählen', {
+                    count: item.candidates.length
+                  })}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {item.candidates.map((candidate) => (
+                  <SelectItem
+                    key={`${candidate.kind}:${candidate.id}`}
+                    value={`${candidate.kind}:${candidate.id}`}
+                  >
+                    {candidate.name}
+                    {candidate.place && ` (${candidate.place})`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           ) : (
             CONTACT_CATEGORIES.has(item.category) && (
               <Button
@@ -159,7 +229,7 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
                 size="sm"
                 className="h-8 gap-1 text-xs"
                 disabled={link.isPending}
-                onClick={() => link.mutate(item.id)}
+                onClick={() => link.mutate({ id: item.id })}
               >
                 <UserPlus className="h-3.5 w-3.5" />
                 {t('Als Kontakt anlegen')}

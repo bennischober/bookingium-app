@@ -24,10 +24,13 @@ function parsed<T>(text: string): T[] {
 export class MarketingMapper {
   static toItemDto(
     row: MarketingItemRow,
-    actionStatus: MarketingItemDto['actionStatus'] = null
+    actionStatus: MarketingItemDto['actionStatus'] = null,
+    candidates: MarketingItemDto['candidates'] = []
   ): MarketingItemDto {
     return {
       actionStatus,
+      candidates,
+      location: row.location,
       id: row.id,
       bandId: row.band_id,
       category: row.category as MarketingCategory,

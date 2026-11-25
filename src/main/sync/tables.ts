@@ -11,13 +11,15 @@
  * - mail_rule, mail_rule_hit: rules act on a local mail account and track its messages
  * - invoice_email_pending: a send this computer's mail client is doing right now
  * - calendar_subscription_cache: #53, what this computer fetched of a subscribed calendar
+ * - marketing_import_undo: the state before this computer's last atlas import, for taking it back
  */
 export const LOCAL_TABLES: ReadonlySet<string> = new Set([
   'mail_link',
   'mail_rule',
   'mail_rule_hit',
   'invoice_email_pending',
-  'calendar_subscription_cache'
+  'calendar_subscription_cache',
+  'marketing_import_undo'
 ])
 
 /**

@@ -1784,6 +1784,19 @@ export const marketing_item = sqliteTable(
   ]
 )
 
+// What a band's atlas and entries looked like before the last import, so it can be taken back
+// ("Letzten Import zurücknehmen"). Stays on the computer that imported (LOCAL_TABLES).
+export const marketing_import_undo = sqliteTable('marketing_import_undo', {
+  band_id: integer('band_id')
+    .primaryKey()
+    .references(() => band.id, { onDelete: 'cascade' }),
+  // JSON: { atlas: row | null, items: row[] }
+  snapshot: text('snapshot').notNull(),
+  created_at: text('created_at')
+    .default(sql`(datetime('now'))`)
+    .notNull()
+})
+
 // A measure booked for a band: radio spot, poster, ad … for a show (and its tour), a tour or a
 // release, with partner, period, cost, receipt and the invoice that passes the cost on
 export const marketing_action = sqliteTable(
@@ -2159,6 +2172,7 @@ export const schema = {
   external_booking,
   calendar_subscription,
   calendar_subscription_cache,
+  marketing_import_undo,
   mail_template,
   mail_rule,
   mail_rule_hit,

@@ -45,9 +45,9 @@ import { validateListSearch } from '@/hooks/useListSearchActions'
 import { isEventTab, type EventTab } from '@/components/event-hub/constants'
 import {
   isBandTab,
-  isMarketingView,
+  marketingSearch,
   type BandTab,
-  type MarketingView
+  type MarketingSearch
 } from '@/components/band/constants'
 import { isCompanyTab, type CompanyTab } from '@/components/company/constants'
 import type { ReminderKind } from '../../main/api/schemas/invoice.schema'
@@ -252,10 +252,10 @@ const eventHubRoute = createRoute({
 const bandDetailRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/band/$bandId',
-  validateSearch: (search: Record<string, unknown>): { tab?: BandTab; view?: MarketingView } => ({
+  validateSearch: (search: Record<string, unknown>): { tab?: BandTab } & MarketingSearch => ({
     tab: isBandTab(search.tab) ? search.tab : undefined,
-    // the Marketing tab's view (Maßnahmen | Atlas); only kept on that tab
-    view: search.tab === 'marketing' && isMarketingView(search.view) ? search.view : undefined
+    // the Marketing tab's view (Maßnahmen | Atlas) and the atlas filters; only on that tab
+    ...(search.tab === 'marketing' ? marketingSearch(search) : {})
   }),
   component: BandDetailPage
 })
