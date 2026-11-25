@@ -1,4 +1,5 @@
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { formatShortDate } from '@/lib/utils'
 import { useMemo, useState } from 'react'
 import { useReportUnsavedChanges } from '@/components/formGuard'
 import { toast } from '@/lib/toast'
@@ -327,7 +328,8 @@ export function InvoiceForm({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
+            {/* The whole row: event names are long, and two in one city must stay apart */}
+            <div className="space-y-2 md:col-span-2">
               <Label htmlFor="invoice-event">{t('Event-Verknüpfung (optional)')}</Label>
               <SearchableSelect
                 id="invoice-event"
@@ -336,7 +338,7 @@ export function InvoiceForm({
                 options={(events.data?.items ?? []).map((event) => ({
                   value: event.id,
                   label: event.name,
-                  hint: event.date
+                  hint: event.date ? formatShortDate(event.date) : undefined
                 }))}
                 noneLabel={t('Keine Event-Verknüpfung')}
                 searchPlaceholder={t('Event suchen…')}

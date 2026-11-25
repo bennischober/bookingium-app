@@ -91,6 +91,8 @@ export function SearchableSelect<T extends string | number = number>({
           role="combobox"
           aria-expanded={open}
           aria-label={ariaLabel}
+          // The full text when the field cuts it off
+          title={triggerText}
           disabled={disabled}
           className={cn(
             'flex h-9 w-full items-center justify-between gap-2 whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
@@ -103,7 +105,8 @@ export function SearchableSelect<T extends string | number = number>({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-(--radix-popover-trigger-width) min-w-56 p-0"
+        // At least as wide as the field, wider for long names, never past the window
+        className="w-auto min-w-(--radix-popover-trigger-width) max-w-[min(36rem,calc(100vw-2rem))] p-0"
         align="start"
         // Inside a sheet/dialog its scroll lock would swallow the wheel
         // (the list renders in a portal outside the dialog)
@@ -135,9 +138,11 @@ export function SearchableSelect<T extends string | number = number>({
                       option.value === value ? 'opacity-100' : 'opacity-0'
                     )}
                   />
-                  <span className="min-w-0 truncate">{option.label}</span>
+                  {/* Wraps instead of cutting off: similar names (two events in one city) must
+                      stay apart */}
+                  <span className="min-w-0 break-words">{option.label}</span>
                   {option.hint && (
-                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                    <span className="ml-auto shrink-0 self-start pl-2 text-xs text-muted-foreground">
                       {option.hint}
                     </span>
                   )}
