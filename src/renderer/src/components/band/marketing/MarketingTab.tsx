@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { FileUp, ListChecks, Megaphone } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
@@ -25,20 +26,28 @@ import { MarketingActions } from './MarketingActions'
 import { Tip } from '@/components/Tip'
 import { countByCategory, countByStatus, filterItems, groupItems } from './marketingFilters'
 import { t } from '../../../../../main/i18n/translate'
+import { isMarketingView, type MarketingView } from '../constants'
 
 const ALL = 'all'
 
-type View = 'actions' | 'atlas'
-
 /**
  * The band's marketing: "Maßnahmen" (what is booked: spots, posters, ads …) and the
- * "Atlas" (the research, imported from a file), switched at the top
+ * "Atlas" (the research, imported from a file), switched at the top; the view is in the URL
  */
 export function MarketingTab({ bandId, bandName }: { bandId: number; bandName: string }) {
-  const overview = trpcReact.marketing.overview.useQuery(bandId)
-  const [picked, setPicked] = useState<View | null>(null)
-  // the atlas first once there is one; measures work without it
-  const view: View = picked ?? (overview.data?.atlas ? 'atlas' : 'actions')
+  const navigate = useNavigate()
+  const search = useSearch({ strict: false }) as { view?: string }
+  // the measures first; the atlas is one click away (and linkable via ?view=atlas)
+  const view: MarketingView = isMarketingView(search.view) ? search.view : 'actions'
+  const pick = (value: MarketingView) =>
+    navigate({
+      to: '.',
+      search: (prev: Record<string, unknown>) => ({
+        ...prev,
+        view: value === 'actions' ? undefined : value
+      }),
+      replace: true
+    } as never)
   return (
     <div className="space-y-5">
       <Tip id="marketing" />
@@ -49,9 +58,9 @@ export function MarketingTab({ bandId, bandName }: { bandId: number; bandName: s
       >
         {(
           [
-            ['atlas', t('Atlas')],
-            ['actions', t('Maßnahmen')]
-          ] as Array<[View, string]>
+            ['actions', t('Maßnahmen')],
+            ['atlas', t('Atlas')]
+          ] as Array<[MarketingView, string]>
         ).map(([value, label]) => (
           <button
             key={value}
@@ -61,7 +70,7 @@ export function MarketingTab({ bandId, bandName }: { bandId: number; bandName: s
               'border-r px-4 py-1.5 text-sm font-medium last:border-r-0',
               view === value ? 'bg-foreground text-background' : 'hover:bg-muted'
             )}
-            onClick={() => setPicked(value)}
+            onClick={() => void pick(value)}
           >
             {label}
           </button>

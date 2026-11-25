@@ -43,7 +43,12 @@ import { ROUTES } from '@/lib/routing'
 import { trackNavigationHistory } from '@/lib/navigationHistory'
 import { validateListSearch } from '@/hooks/useListSearchActions'
 import { isEventTab, type EventTab } from '@/components/event-hub/constants'
-import { isBandTab, type BandTab } from '@/components/band/constants'
+import {
+  isBandTab,
+  isMarketingView,
+  type BandTab,
+  type MarketingView
+} from '@/components/band/constants'
 import { isCompanyTab, type CompanyTab } from '@/components/company/constants'
 import type { ReminderKind } from '../../main/api/schemas/invoice.schema'
 import { isVenueTab, type VenueTab } from '@/components/venue/constants'
@@ -247,8 +252,10 @@ const eventHubRoute = createRoute({
 const bandDetailRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/band/$bandId',
-  validateSearch: (search: Record<string, unknown>): { tab?: BandTab } => ({
-    tab: isBandTab(search.tab) ? search.tab : undefined
+  validateSearch: (search: Record<string, unknown>): { tab?: BandTab; view?: MarketingView } => ({
+    tab: isBandTab(search.tab) ? search.tab : undefined,
+    // the Marketing tab's view (Maßnahmen | Atlas); only kept on that tab
+    view: search.tab === 'marketing' && isMarketingView(search.view) ? search.view : undefined
   }),
   component: BandDetailPage
 })

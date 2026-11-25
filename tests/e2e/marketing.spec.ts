@@ -69,7 +69,13 @@ test('imports a Marketing-Atlas into a band and links its contacts', async () =>
   await page.getByRole('link', { name: 'Bands' }).first().click()
   await page.locator('tr', { hasText: BAND }).first().click()
   await page.getByRole('tab', { name: 'Marketing' }).click()
-  // without an atlas the measures come first
+  // the measures come first, the atlas second
+  const views = page.getByRole('group', { name: 'Marketing' }).getByRole('button')
+  await expect(views).toHaveText(['Maßnahmen', 'Atlas'])
+  await expect(page.getByRole('button', { name: 'Maßnahmen', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  )
   await expect(page.getByText('Noch keine Maßnahmen.')).toBeVisible()
   await page.getByRole('button', { name: 'Atlas', exact: true }).click()
   await expect(page.getByText(`Noch kein Marketing-Atlas für ${BAND}`)).toBeVisible()
@@ -147,8 +153,25 @@ test('imports a Marketing-Atlas into a band and links its contacts', async () =>
   await expect(page.getByText(/1 Maßnahme · Kosten 1.200,00/)).toBeVisible()
   await page.screenshot({ path: join(shots, 'marketing-actions.png'), fullPage: true })
 
+  // with an atlas, reopening the tab still lands on the measures
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
+  await page.getByRole('tab', { name: 'Marketing' }).click()
+  await expect(page.getByRole('button', { name: 'Maßnahmen', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  )
+  await expect(page.getByText('Spot 20 s Tourvorbericht')).toBeVisible()
+
   await page.getByRole('link', { name: 'Probe Rock FM' }).first().click()
   await expect(page.getByText('Marketing', { exact: true })).toBeVisible()
   await expect(page.getByText('Spot 20 s Tourvorbericht')).toBeVisible()
   await expect(page.getByText(/Radios · Priorität A · Angefragt/)).toBeVisible()
+
+  // the band's atlas entry links straight to the atlas view
+  await page.getByRole('link', { name: BAND }).first().click()
+  await expect(page.getByRole('button', { name: 'Atlas', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  )
+  await expect(page.getByRole('button', { name: /^Probe Rock FM/ })).toBeVisible()
 })

@@ -17,7 +17,7 @@ function Links({ links }: { links: MarketingLinkDto[] }) {
           <Link
             to="/band/$bandId"
             params={{ bandId: String(link.bandId) }}
-            search={{ tab: 'marketing' }}
+            search={{ tab: 'marketing', view: 'atlas' }}
             className="font-medium hover:underline"
           >
             {link.bandName}
