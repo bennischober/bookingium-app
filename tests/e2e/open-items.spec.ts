@@ -57,3 +57,29 @@ test('a contract sent but not back is open until it is back signed', async () =>
   ).toBeVisible()
   await expect(page.getByRole('link').filter({ hasText: OPEN })).toHaveCount(0)
 })
+
+test('several open points are ticked as done externally at once, and back with undo', async () => {
+  const { page } = h
+  await page.getByRole('link', { name: 'Events' }).first().click()
+  await page.locator('tr', { hasText: EVENT }).first().click()
+  await expect(page.getByRole('heading', { name: EVENT })).toBeVisible()
+  await editFinancials((p) => p.getByLabel('Unterschrieben zurück am').fill(''))
+
+  await page.getByRole('link', { name: 'Dashboard' }).first().click()
+  const list = page.getByRole('list', { name: 'Offene Punkte' })
+  await expect(list.getByText(OPEN)).toBeVisible()
+
+  await page.getByRole('button', { name: 'Auswählen' }).click()
+  // While selecting a row is a checkbox, not a link to the event
+  await list.getByRole('checkbox', { name: new RegExp(OPEN) }).check()
+  await expect(page.getByText(/^1 von \d+ ausgewählt$/)).toBeVisible()
+  await page.screenshot({ path: 'test-results/open-items-bulk-done.png' })
+  await page.getByRole('button', { name: 'Als extern erledigt markieren' }).click()
+  await page.getByRole('button', { name: 'Als erledigt markieren' }).click()
+
+  await expect(page.getByText('1 Punkt als extern erledigt markiert')).toBeVisible()
+  await expect(page.getByText(OPEN)).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Rückgängig' }).click()
+  await expect(list.getByRole('link').filter({ hasText: OPEN })).toBeVisible()
+})
