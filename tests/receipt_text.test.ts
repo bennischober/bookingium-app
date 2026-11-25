@@ -32,7 +32,8 @@ describe('readReceiptText', () => {
       currency: 'EUR',
       reference: 'RE-2026/0815',
       supplierNames: ['Hotel Beispiel GmbH', 'Agentur Beispiel GmbH'],
-      vatIds: ['DE123456789']
+      supplierVatIds: ['DE123456789'],
+      recipientVatIds: []
     })
   })
 
@@ -94,6 +95,150 @@ Total due £1,200.00`
     const fields = readReceiptText('Sehr geehrte Damen und Herren, anbei die Unterlagen.')
     expect(fields).toMatchObject({ receiptDate: null, amountCents: null, currency: null })
     expect(hasReceiptTextFields(fields)).toBe(false)
+  })
+})
+
+// Every supplier lays out its invoices differently; these follow real layouts with made-up data
+describe('readReceiptText across layouts', () => {
+  it('column layout: labels and values apart, supplier at the bottom, recipient block', () => {
+    // An online ad platform: an overview box, then a totals table whose values come first
+    const text = `Seite 1 von 2
+Rechnung
+Rechnungsnummer: 9100000042
+........ 9100000042
+........ 31. Okt. 2026
+........ 1111-2222-3333
+Details
+Rechnungsnummer
+Rechnungsdatum
+Kontonummer
+7,29 €
+Beispiel Ads
+Gesamtsumme in EUR
+7,14 €
+0,00 €
+0,15 €
+7,29 €
+Übersicht für den Zeitraum 1. Okt. 2026 - 31. Okt. 2026
+Betrag in EUR
+Umsatzsteuer (0%)
+Gebühren für Österreich*
+Gesamtsumme in EUR
+Beispiel Werbung Ireland Limited
+Musterhaus
+Musterstraße
+Dublin 4
+Ireland
+Umsatzsteuer-Identifikationsnummer: IE 1234567X
+Rechnungsempfänger
+Erika Mustermann
+Agentur Beispiel AG
+Beispielweg 2
+54321 Beispielstadt
+Germany
+Umsatzsteuer-Identifikationsnummer: DE 123456789
+Handelsregisternummer von Beispiel Werbung Ireland: 123456
+Seite 2 von 2
+7,14 €
+0,00 €
+7,14 €
+Zwischensumme in EUR
+Umsatzsteuer (0%)
+Gesamtsumme in EUR
+Beschreibung Menge Einheiten Betrag
+Kampagne Herbst 1492 Klicks 7,23`
+    expect(readReceiptText(text)).toEqual({
+      receiptDate: '2026-10-31',
+      amountCents: 729,
+      currency: 'EUR',
+      reference: '9100000042',
+      supplierNames: ['Beispiel Werbung Ireland Limited'],
+      supplierVatIds: ['IE1234567X'],
+      recipientVatIds: ['DE123456789']
+    })
+  })
+
+  it('telecom bill: Rechnungsbetrag, billing period, customer number', () => {
+    const text = `Musterfon GmbH, Postfach 1, 12345 Musterstadt
+Agentur Beispiel GmbH
+Beispielweg 2
+54321 Beispielstadt
+Ihre Rechnung für Oktober 2026
+Kundennummer 123 456 789
+Rechnungsnummer 2026-10-998877
+Datum 05.11.2026
+Abrechnungszeitraum 01.10.2026 - 31.10.2026
+Monatlicher Grundpreis 33,61 €
+Summe netto 33,61 €
+Umsatzsteuer 19 % 6,38 €
+Rechnungsbetrag 39,99 €
+Der Betrag wird am 15.11.2026 abgebucht.`
+    expect(readReceiptText(text)).toMatchObject({
+      receiptDate: '2026-11-05',
+      amountCents: 3999,
+      currency: 'EUR',
+      reference: '2026-10-998877',
+      supplierNames: ['Musterfon GmbH', 'Agentur Beispiel GmbH']
+    })
+  })
+
+  it('English shop invoice with "Bill to" and a foreign legal form', () => {
+    const text = `INVOICE
+Beispielshop Europe S.à r.l.
+1 Rue Exemple, L-1234 Luxembourg
+VAT: LU12345678
+Bill to
+Agentur Beispiel GmbH
+Beispielweg 2, 54321 Beispielstadt
+VAT: DE123456789
+Invoice number: LU-2026-77
+Invoice date: 07 November 2026
+Item Qty Unit price Amount
+USB microphone 1 49.58 49.58
+Subtotal 49.58
+VAT 19% 9.42
+Invoice total EUR 59.00`
+    expect(readReceiptText(text)).toMatchObject({
+      receiptDate: '2026-11-07',
+      amountCents: 5900,
+      currency: 'EUR',
+      reference: 'LU-2026-77',
+      supplierNames: ['Beispielshop Europe S.à r.l.'],
+      supplierVatIds: ['LU12345678'],
+      recipientVatIds: ['DE123456789']
+    })
+  })
+
+  it('ticket: no invoice-date label, travel period skipped, total from "Summe"', () => {
+    const text = `Musterbahn AG
+Online-Ticket
+Gültigkeit: vom 20.11.2026 bis 21.11.2026
+Buchungsdatum 12.11.2026
+Hinfahrt Musterstadt → Beispielstadt
+Flexpreis 1 Erwachsener 49,90 €
+Summe 49,90 €
+Enthaltene MwSt 7 % 3,26 €
+Auftragsnummer: AB1234`
+    expect(readReceiptText(text)).toMatchObject({
+      receiptDate: '2026-11-12',
+      amountCents: 4990,
+      reference: '',
+      supplierNames: ['Musterbahn AG']
+    })
+  })
+
+  it('values block above the labels: the largest repeated amount is the total', () => {
+    const text = `Beispiel Software Inc.
+Receipt
+119,00 €
+100,00 €
+19,00 €
+119,00 €
+Gesamtbetrag
+Nettobetrag
+Umsatzsteuer
+Bezahlt`
+    expect(readReceiptText(text)).toMatchObject({ amountCents: 11900, currency: 'EUR' })
   })
 })
 

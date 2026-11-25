@@ -173,6 +173,7 @@ describe('receipts', () => {
     const pdf = await textPdf(['Rechnung 2026-55', 'Summe 59,50 EUR', 'USt-IdNr. DE987654321'])
     const draft = await receipts.read(pdf, 'rechnung.pdf')
     expect(draft.supplierMatch).toEqual({ id: supplier.id, name: 'Tontechnik Beispiel GmbH' })
+    expect(draft.supplierVatId).toBe('DE987654321')
     expect(draft.fields).toMatchObject({
       supplierCompanyId: supplier.id,
       supplierName: 'Tontechnik Beispiel GmbH',
