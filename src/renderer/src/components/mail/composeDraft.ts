@@ -160,12 +160,18 @@ export function withSignature(state: ComposeState, signature: string | undefined
   // Above the quote: everything from the first quoted line or the forwarded header
   // stays below the signature
   const lines = state.bodyText.split('\n')
-  const quoteAt = lines.findIndex((line) => line.startsWith('>') || line.startsWith(FORWARD_HEADER))
+  let quoteAt = lines.findIndex((line) => line.startsWith('>') || line.startsWith(FORWARD_HEADER))
+  // #305: a reply's "Am … schrieb …:" line belongs to the quote, so the signature goes above it
+  if (quoteAt > 0 && lines[quoteAt].startsWith('>') && lines[quoteAt - 1].trim() !== '') {
+    quoteAt -= 1
+  }
+  // #305: the text above the quote is ONE string. It used to be spread (`...text`), which put
+  // every character of the reply header on a line of its own.
   const body =
     quoteAt < 0
       ? `${state.bodyText.replace(/\s+$/, '')}\n\n${text}\n`
       : [
-          ...lines.slice(0, quoteAt).join('\n').replace(/\s+$/, ''),
+          lines.slice(0, quoteAt).join('\n').replace(/\s+$/, ''),
           '',
           text,
           '',

@@ -12,6 +12,8 @@ import { formatSize } from './format'
 import { attachmentsFit, MAX_ATTACHMENT_BYTES, pasteContent } from './composeDraft'
 import { composeBody, toEditorHtml } from './composeBody'
 import { InsertTemplateDialog } from './InsertTemplateDialog'
+import { MentionMenu } from './MentionMenu'
+import { useComposeMention } from './useComposeMention'
 import {
   type SendPhase,
   createSendGate,
@@ -56,7 +58,8 @@ export function ComposeView({
   onClose,
   onStored,
   invoice,
-  record
+  record,
+  canPopOut = false
 }: {
   accountId: string
   initial: ComposeState
@@ -71,6 +74,8 @@ export function ComposeView({
   invoice?: { token: string; attachmentName: string }
   /** #121: the record a follow-up of this mail is filed on (the invoice or contract mailed) */
   record?: FollowUpRecord | null
+  /** #307: the editor may move to a window of its own (the main window's reading pane) */
+  canPopOut?: boolean
 }) {
   const [mail, setMail] = useState(initial)
   const [showCopies, setShowCopies] = useState(initial.cc.length > 0 || initial.bcc.length > 0)
@@ -226,6 +231,9 @@ export function ComposeView({
     setMail((m) => ({ ...m, ...patch }))
   }
 
+  // #306: "@Name" offers the recipients and contacts; a pick is highlighted and added under An
+  const mention = useComposeMention({ body, accountId, mail, mailRef, update })
+
   /**
    * F3: the editor holds HTML; composeBody reduces it to the formatting the four
    * commands offer and derives the plain text, which stays the source of truth.
@@ -233,6 +241,7 @@ export function ComposeView({
   const onBodyInput = () => {
     const html = body.current?.innerHTML ?? ''
     update(composeBody(html))
+    mention.detect()
   }
 
   const openTemplates = () => {
@@ -274,6 +283,30 @@ export function ComposeView({
       onStored()
     } catch (error) {
       toast.error(t('Entwurf konnte nicht gespeichert werden'), { description: errorText(error) })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /**
+   * #307: the editor moves to a window of its own, so the main window is free to look
+   * something up. Pending changes are stored first: the new window carries on with the same
+   * draft (its UID travels along) and this editor closes without saving a second one.
+   */
+  const popOut = async () => {
+    setBusy('save')
+    try {
+      if (isDirty()) await save()
+      await queue.current
+      const state: ComposeState = { ...mailRef.current, draftUid: draftUid.current }
+      await window.api.popOutCompose(accountId, state)
+      closed.current = true
+      onStored()
+      onClose()
+    } catch (error) {
+      toast.error(t('Konnte nicht in eigenem Fenster geöffnet werden'), {
+        description: errorText(error)
+      })
     } finally {
       setBusy(null)
     }
@@ -576,6 +609,7 @@ export function ComposeView({
         saveNow={saveNow}
         addFiles={addFiles}
         discard={discard}
+        popOut={canPopOut ? popOut : undefined}
       />
 
       {phase === 'unclear' && (
@@ -619,9 +653,17 @@ export function ComposeView({
         aria-multiline="true"
         ref={body}
         onInput={onBodyInput}
+        onKeyDown={(e) => void mention.onKeyDown(e)}
+        // #306: the caret can leave or enter an "@word" without typing
+        onKeyUp={(e) => {
+          if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) mention.detect()
+        }}
+        onClick={() => mention.detect()}
+        onBlur={() => mention.close()}
         // The editor shows what the mail will look like, not the tags
         suppressContentEditableWarning
       />
+      {mention.menu && <MentionMenu {...mention.menu} />}
       <InsertTemplateDialog
         open={templateOpen}
         onOpenChange={setTemplateOpen}

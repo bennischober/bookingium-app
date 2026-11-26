@@ -446,5 +446,6 @@ export const pagesEn: Record<string, string> = {
   'Alle Clubs, Hallen und ihre Kapazitäten verwalten.':
     'Manage all clubs, halls and their capacities.',
   '{{plural}} filtern…': 'Filter {{plural}}…',
-  '{{Neuen}} im Verzeichnis anlegen.': 'Add {{Neuen}} to the directory.'
+  '{{Neuen}} im Verzeichnis anlegen.': 'Add {{Neuen}} to the directory.',
+  'Der Entwurf liegt im Ordner Entwürfe.': 'The draft is in the Drafts folder.'
 }

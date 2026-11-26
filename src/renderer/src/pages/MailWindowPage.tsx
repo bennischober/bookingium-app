@@ -41,6 +41,8 @@ export default function MailWindowPage() {
     draft?: string
     attachment?: string
     record?: string
+    /** #307: an editor handed over from the main window */
+    handoff?: string
   }
   const accountId = search.account ?? ''
   const messageId = Number(search.message)
@@ -129,6 +131,33 @@ export default function MailWindowPage() {
     }
   }, [isSavedDraft, messageId, accountId])
 
+  // #307: an editor handed over from the main window, taken once from main. A reload finds
+  // nothing there any more; its draft is in Drafts by then.
+  const handoff = search.handoff ? String(search.handoff) : ''
+  const [handoffGone, setHandoffGone] = useState(false)
+  useEffect(() => {
+    if (!handoff) return
+    let current = true
+    window.api
+      .takeCompose(handoff)
+      .then((state) => {
+        if (!current) return
+        if (state) {
+          setCompose({ key: Date.now(), state: state as ComposeState, closesWindow: true })
+        } else {
+          setHandoffGone(true)
+        }
+      })
+      .catch(failed(t('Entwurf konnte nicht geöffnet werden')))
+    return () => {
+      current = false
+    }
+  }, [handoff])
+
+  useEffect(() => {
+    if (handoff && compose?.state.subject) document.title = compose.state.subject
+  }, [handoff, compose?.state.subject])
+
   // Changes made in the main window (flag, move) show here too
   trpcReact.mail.events.useSubscription(undefined, {
     enabled: Boolean(accountId),
@@ -181,7 +210,18 @@ export default function MailWindowPage() {
             )
     })
 
-  if (!composeRequest && (!accountId || !Number.isSafeInteger(messageId))) {
+  if (handoff && !compose) {
+    return handoffGone ? (
+      <p className="p-6 text-sm text-muted-foreground">
+        {t('Der Entwurf liegt im Ordner Entwürfe.')}
+      </p>
+    ) : (
+      <div className="flex h-screen items-center justify-center">
+        <Spinner />
+      </div>
+    )
+  }
+  if (!composeRequest && !handoff && (!accountId || !Number.isSafeInteger(messageId))) {
     return <p className="p-6 text-sm text-destructive">{t('Diese E-Mail gibt es nicht.')}</p>
   }
   // C1: a compose window needs no message, so it never waits for one

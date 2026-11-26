@@ -191,6 +191,9 @@ function escapeHtml(text: string): string {
  * in. Splitting on blank lines and dropping empty blocks threw them away, so the caret
  * landed on the first character of the quote. A leading blank block is therefore kept as
  * an empty paragraph - the caret effect then has somewhere to go.
+ *
+ * #305: a bare URL becomes a link here already, as composeBody does on send, so the
+ * editor shows a signature the way the recipient sees it.
  */
 export function toEditorHtml(text: string, html?: string | null): string {
   if (html) return sanitizeComposeHtml(html)
@@ -199,7 +202,13 @@ export function toEditorHtml(text: string, html?: string | null): string {
     .split(/\n{2,}/)
     .map((block) => block.trim())
     .filter(Boolean)
-    .map((block) => `<p>${block.split('\n').map(escapeHtml).join('<br>')}</p>`)
+    .map(
+      (block) =>
+        `<p>${block
+          .split('\n')
+          .map((line) => linkifyText(line))
+          .join('<br>')}</p>`
+    )
   // The empty paragraph is the writing room above the quote; without it the editor
   // opens with the caret inside the quoted text (H3)
   return (leadingBlank ? '<p><br></p>' : '') + paragraphs.join('')

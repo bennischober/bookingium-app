@@ -165,6 +165,22 @@
     list-style: decimal;
     padding-left: 1.5rem;
   }
+  /* #305: the editor shows the mail as the recipient sees it. The sent HTML is bare, so a
+     receiving client gives paragraphs its default 1em spacing and underlines links;
+     preflight took both away here, and a signature looked unformatted until it was sent. */
+  .mail-editor p {
+    margin-block: 1em;
+  }
+  .mail-editor > p:first-child {
+    margin-top: 0;
+  }
+  .mail-editor a {
+    @apply text-primary underline;
+  }
+  /* #306: a mention is one highlighted piece, like a chip */
+  .mail-editor a.mention {
+    @apply rounded bg-primary/10 px-0.5 font-medium no-underline;
+  }
   /* Clickable controls show the hand cursor; Tailwind v4 resets buttons to
      the arrow. Utilities such as cursor-default still win over this. */
   button:not(:disabled),

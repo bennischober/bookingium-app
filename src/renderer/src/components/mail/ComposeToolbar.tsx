@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { Paperclip, Send, Trash2 } from 'lucide-react'
+import { ExternalLink, Paperclip, Send, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import {
@@ -26,7 +26,8 @@ export function ComposeToolbar({
   send,
   saveNow,
   addFiles,
-  discard
+  discard,
+  popOut
 }: {
   busy: ComposeBusy
   /** Why the mail cannot be sent yet, or null */
@@ -40,6 +41,8 @@ export function ComposeToolbar({
   saveNow: () => Promise<void>
   addFiles: (files: FileList | null) => Promise<void>
   discard: () => Promise<void>
+  /** #307: move the editor to a window of its own; absent where it already is one */
+  popOut?: () => Promise<void>
 }) {
   const fileInput = useRef<HTMLInputElement>(null)
   return (
@@ -122,11 +125,25 @@ export function ComposeToolbar({
           {savedAt.toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })}
         </span>
       )}
+      {popOut && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="ml-auto"
+          disabled={busy !== null || locked}
+          onClick={() => void popOut()}
+          title={t('In eigenem Fenster öffnen')}
+          aria-label={t('In eigenem Fenster öffnen')}
+        >
+          <ExternalLink />
+        </Button>
+      )}
       <Button
         type="button"
         variant="ghost"
         size="icon-sm"
-        className="ml-auto"
+        className={popOut ? undefined : 'ml-auto'}
         disabled={busy !== null || locked}
         onClick={() => void discard()}
         title={t('Verwerfen')}
