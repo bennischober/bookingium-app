@@ -67,6 +67,18 @@ describe('signature insertion (B8)', () => {
     expect(sigAt).toBeLessThan(quoteAt)
   })
 
+  // #305: the reply header was spread into characters, one per line
+  it('keeps the reply header on one line, below the signature', () => {
+    const reply = replyCompose(message(), { all: false, ownEmail: 'ich@example.test' })
+    const lines = withSignature(reply, SIGNATURE).bodyText.split('\n')
+    const header = lines.findIndex((line) => line.startsWith('Am ') && line.endsWith(':'))
+    expect(header).toBeGreaterThan(-1)
+    expect(lines[header]).toContain('schrieb Erika Musterfrau:')
+    expect(lines.findIndex((line) => line.includes('030 123456'))).toBeLessThan(header)
+    expect(lines[header + 1].startsWith('> ')).toBe(true)
+    expect(lines.every((line) => line.length !== 1)).toBe(true)
+  })
+
   it('never inserts the same signature twice when a draft is reopened', () => {
     const once = withSignature(emptyCompose(), SIGNATURE)
     const twice = withSignature(once, SIGNATURE)

@@ -128,6 +128,10 @@ export interface DocumentAPI {
   copyMailLink: (url: string) => Promise<{ success: boolean; error?: string }>
   /** Opens a mail of the built-in mail client in its own window (or focuses that window) */
   openMailWindow: (accountId: string, messageId: number) => Promise<void>
+  /** #307: hand an open editor (its ComposeState) to a window of its own */
+  popOutCompose: (accountId: string, state: unknown) => Promise<void>
+  /** #307: the editor this window was opened for, once; null after that */
+  takeCompose: (token: string) => Promise<unknown>
   /** The draft is stored; close the window main was holding open */
   closeMailWindow: () => void
   /** Open dialog for a CSV/Excel file (skipped for a dropped path); returns its rows */

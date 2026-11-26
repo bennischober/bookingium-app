@@ -113,6 +113,7 @@ export function ReadingPane({
             if (compose.draftId !== undefined) setSelection(EMPTY_SELECTION)
           }}
           onStored={refreshLists}
+          canPopOut
         />
       ) : selectedId !== null ? (
         <MessageView

@@ -148,10 +148,20 @@ describe('toEditorHtml never sniffs a plain text (MR-08)', () => {
     )
   })
 
-  it('keeps a URL in angle brackets as text', () => {
+  it('keeps the angle brackets around a URL as text and links the URL (#305)', () => {
     expect(toEditorHtml('siehe <https://example.test/a>')).toBe(
-      '<p>siehe &lt;https://example.test/a&gt;</p>'
+      '<p>siehe &lt;<a href="https://example.test/a">https://example.test/a</a>&gt;</p>'
     )
+  })
+
+  // #305: the editor shows a signature's links the way the sent mail does
+  it('links a bare URL so the editor matches the sent mail', () => {
+    const text = 'Viele Grüße\nhttps://example.test/band.'
+    const html = toEditorHtml(text)
+    expect(html).toBe(
+      '<p>Viele Grüße<br><a href="https://example.test/band">https://example.test/band</a>.</p>'
+    )
+    expect(composeBody(html).bodyText).toBe(text)
   })
 
   it('shows a literal <b> instead of making the text bold', () => {

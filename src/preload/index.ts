@@ -67,6 +67,13 @@ const api = {
   openMailWindow: (accountId: string, messageId: number) =>
     ipcRenderer.invoke('mail:openWindow', { accountId, messageId }),
 
+  /** #307: hand an open editor to a window of its own */
+  popOutCompose: (accountId: string, state: unknown) =>
+    ipcRenderer.invoke('mail:popOutCompose', { accountId, state }),
+
+  /** #307: the editor this window was opened for (once) */
+  takeCompose: (token: string) => ipcRenderer.invoke('mail:takeCompose', { token }),
+
   /** The draft is stored; close the window main was holding open */
   closeMailWindow: () => ipcRenderer.send('mail:closeWindow'),
 

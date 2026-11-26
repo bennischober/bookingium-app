@@ -1,5 +1,6 @@
 import { BrowserWindow, ipcMain, shell } from 'electron'
 import { join } from 'path'
+import { randomUUID } from 'crypto'
 import { is } from '@electron-toolkit/utils'
 import { createIPCHandler } from 'electron-trpc/main'
 import icon from '../../../resources/icon.png?asset'
@@ -230,4 +231,30 @@ export function openMailWindow(accountId: string, messageId: number): void {
   )
   mailWindows.set(key, window)
   window.on('closed', () => mailWindows.delete(key))
+}
+
+/**
+ * #307: editors handed from the main window to a window of their own. The state stays here,
+ * keyed by a one-time token, until the new window takes it: a draft with attachments is far
+ * too big for the window's query.
+ */
+const composeHandoffs = new Map<string, unknown>()
+
+/** #307: opens the editor the main window hands over in its own window */
+export function openComposeWindow(accountId: string, state: unknown): void {
+  const token = randomUUID()
+  composeHandoffs.set(token, state)
+  const search = new URLSearchParams({ account: accountId, handoff: token })
+  const window = createAppWindow(
+    { width: 820, height: 720, minWidth: 480, minHeight: 400 },
+    `/mail/window?${search}`
+  )
+  window.on('closed', () => composeHandoffs.delete(token))
+}
+
+/** #307: the handed-over editor state, once; a second call (a reload) gets null */
+export function takeComposeHandoff(token: string): unknown {
+  const state = composeHandoffs.get(token) ?? null
+  composeHandoffs.delete(token)
+  return state
 }

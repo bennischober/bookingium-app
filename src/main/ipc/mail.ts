@@ -1,5 +1,5 @@
 import { clipboard, ipcMain } from 'electron'
-import { openMailWindow } from '../app/windows'
+import { openComposeWindow, openMailWindow, takeComposeHandoff } from '../app/windows'
 import { copyableLinkUrl } from '../mail/linkClipboard'
 
 /** The mail page's native channels; everything else of the mail client goes through tRPC */
@@ -14,6 +14,20 @@ export function registerMailIpc(): void {
       if (typeof accountId !== 'string' || !accountId || !Number.isSafeInteger(messageId)) return
       openMailWindow(accountId, messageId)
     }
+  )
+
+  /** #307: an editor of the main window moves to a window of its own */
+  ipcMain.handle(
+    'mail:popOutCompose',
+    (_event, { accountId, state }: { accountId: string; state: unknown }) => {
+      if (typeof accountId !== 'string' || !accountId || typeof state !== 'object' || !state) return
+      openComposeWindow(accountId, state)
+    }
+  )
+
+  /** #307: the new window takes the editor it was opened for */
+  ipcMain.handle('mail:takeCompose', (_event, { token }: { token: string }) =>
+    typeof token === 'string' ? takeComposeHandoff(token) : null
   )
 
   /**

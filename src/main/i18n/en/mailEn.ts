@@ -422,5 +422,9 @@ export const mailEn: Record<string, string> = {
   'ungelesene E-Mails': 'unread emails',
   '{{mails}} im Posteingang': '{{mails}} in the inbox',
   '{{mails}} in den Posteingängen:': '{{mails}} in the inboxes:',
-  'Ungelesen im Posteingang': 'Unread in inbox'
+  'Ungelesen im Posteingang': 'Unread in inbox',
+  'Konnte nicht in eigenem Fenster geöffnet werden': 'Could not be opened in its own window',
+  'Person erwähnen': 'Mention a person',
+  'wird als Empfänger hinzugefügt': 'will be added as a recipient',
+  '{{name}} als Empfänger hinzugefügt': '{{name}} added as a recipient'
 }
