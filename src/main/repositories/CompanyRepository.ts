@@ -16,6 +16,10 @@ import type { CompanyBankInput } from '../api/schemas/company.schema'
  * #247: writes the account typed in the company form. The company's own bank row is changed
  * in place; a row other companies point at too (picked on the Banken page) is left alone and
  * the company gets a row of its own. All fields empty unlinks the account.
+ *
+ * An account that is already on the Banken page with exactly these details and belongs to no
+ * other company is linked instead of copied (the form's "Aus Banken übernehmen" pick, or the
+ * same account typed again after the link got lost).
  */
 export function saveCompanyBank(
   tx: Tx,
@@ -41,6 +45,8 @@ export function saveCompanyBank(
       current.bank_name === values.bank_name
     )
       return currentBankId
+    const existing = findUnlinkedBank(tx, values, companyId)
+    if (existing !== null) return existing
     const shared = tx
       .select({ id: company.id })
       .from(company)
@@ -52,7 +58,38 @@ export function saveCompanyBank(
       return currentBankId
     }
   }
-  return tx.insert(bank).values(values).returning({ id: bank.id }).get().id
+  return (
+    findUnlinkedBank(tx, values, companyId) ??
+    tx.insert(bank).values(values).returning({ id: bank.id }).get().id
+  )
+}
+
+/** A bank row with exactly these (normalized) details that no other company points at */
+function findUnlinkedBank(
+  tx: Tx,
+  values: { account_holder: string; iban: string; bic: string; bank_name: string },
+  companyId: number | null
+): number | null {
+  const candidates = tx
+    .select({ id: bank.id })
+    .from(bank)
+    .where(
+      sql`replace(upper(${bank.iban}), ' ', '') = ${values.iban}
+        AND replace(upper(${bank.bic}), ' ', '') = ${values.bic}
+        AND trim(${bank.account_holder}) = ${values.account_holder}
+        AND trim(${bank.bank_name}) = ${values.bank_name}`
+    )
+    .orderBy(bank.id)
+    .all()
+  for (const candidate of candidates) {
+    const owners = tx
+      .select({ id: company.id })
+      .from(company)
+      .where(eq(company.bank_id, candidate.id))
+      .all()
+    if (owners.every((owner) => owner.id === companyId)) return candidate.id
+  }
+  return null
 }
 
 @injectable()

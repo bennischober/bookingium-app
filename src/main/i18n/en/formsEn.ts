@@ -143,5 +143,8 @@ export const formsEn: Record<string, string> = {
   'Eine Zahl oder eine Spanne von–bis, je nach Bestuhlung oder Raum.':
     'A number or a range from–to, depending on seating or room.',
   'Weitere Details': 'More details',
-  'Verknüpfte Firma (optional)': 'Linked company (optional)'
+  'Verknüpfte Firma (optional)': 'Linked company (optional)',
+  'Aus Banken übernehmen': 'Take from banks',
+  'Bank wählen…': 'Choose bank…',
+  'Bank suchen…': 'Search banks…'
 }

@@ -77,4 +77,49 @@ describe('company bank account (#247)', () => {
     expect(bankOf(a.id)?.id).not.toBe(shared.id)
     expect(bankOf(b.id)).toMatchObject({ id: shared.id, bank_name: 'Gemeinsam' })
   })
+  it('links an account already on the Banken page instead of copying it', async () => {
+    const listed = getTestDb()
+      .db.insert(bank)
+      .values({
+        bank_name: 'Beispielbank',
+        account_holder: 'Beispiel GmbH',
+        iban: 'DE02 1203 0000 0000 2020 51',
+        bic: 'BEISDEF0XXX'
+      })
+      .returning()
+      .get()
+    // a company whose link got lost (another computer's sync) gets the listed row back
+    const own = await create('Eigene Muster GmbH')
+    const banks = () => getTestDb().db.select().from(bank).all().length
+    const count = banks()
+    await update(own.id, { bank: account })
+    expect(bankOf(own.id)?.id).toBe(listed.id)
+    expect(banks()).toBe(count)
+    // a second company typing the same account gets a row of its own
+    const other = await create('Andere Muster GmbH', { bank: account })
+    expect(bankOf(other.id)?.id).not.toBe(listed.id)
+  })
+
+  it('switches from its own account to a listed one without changing either', async () => {
+    const own = await create('Wechsel Muster GmbH', {
+      bank: { ...account, bankName: 'Alte Bank' }
+    })
+    const before = bankOf(own.id)!
+    const listed = getTestDb()
+      .db.insert(bank)
+      .values({
+        bank_name: 'Neue Bank',
+        account_holder: 'B',
+        iban: 'DE89370400440532013000',
+        bic: ''
+      })
+      .returning()
+      .get()
+    await update(own.id, {
+      bank: { accountHolder: 'B', iban: 'DE89370400440532013000', bic: '', bankName: 'Neue Bank' }
+    })
+    expect(bankOf(own.id)?.id).toBe(listed.id)
+    const old = getTestDb().db.select().from(bank).where(eq(bank.id, before.id)).get()
+    expect(old?.bank_name).toBe('Alte Bank')
+  })
 })

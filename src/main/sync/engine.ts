@@ -169,6 +169,12 @@ export class SyncEngine {
     await scanStorage(this.sqlite, this.options.storageDir, clock, this.transport)
     setMeta(this.sqlite, 'hlc', clock.current())
 
+    // This computer's unsent edits are stamped before the others' batches are applied: an
+    // incoming change to the same field is then compared against them. Packed afterwards, an
+    // older incoming value overwrote the field here while the edit still went out to the others,
+    // and the computers disagreed for good (a company's bank account linked differently).
+    packOutgoing(this.sqlite, this.clock(), this.deviceId, this.options.schema, this.now())
+
     await this.importBatches(result)
 
     const files = await applyPendingFiles(

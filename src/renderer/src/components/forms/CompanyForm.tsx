@@ -25,6 +25,9 @@ import {
 } from '../../../../main/api/schemas/company.schema'
 import { t } from '../../../../main/i18n/translate'
 
+/** IBAN/BIC as stored: no spaces, upper case */
+const compact = (value: string) => value.replace(/\s+/g, '').toUpperCase()
+
 const KIND_OPTIONS = CompanyKind.options.map((kind) => ({
   value: kind,
   label: COMPANY_KIND_LABELS[kind]
@@ -75,6 +78,7 @@ export function CompanyForm({
   isSubmitting = false
 }: CompanyFormProps) {
   const persons = trpcReact.person.getListItems.useQuery()
+  const banks = trpcReact.bank.getAll.useQuery()
   const [logoPreview, setLogoPreview] = useState<string>(company?.logoPath || '')
   const [signaturePreview, setSignaturePreview] = useState<string>(company?.signaturePath || '')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -369,6 +373,46 @@ export function CompanyForm({
       {/* #247: the account right here instead of a pick from the Banken page */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">{t('Bankverbindung')}</h3>
+        {/* An account already on the Banken page (e.g. synced from another computer): picked
+            here, saving links that row instead of copying it (saveCompanyBank) */}
+        {(banks.data?.length ?? 0) > 0 && (
+          <div className="space-y-2">
+            <Label htmlFor="company-bank-pick">{t('Aus Banken übernehmen')}</Label>
+            <form.Subscribe selector={(state) => state.values.bank}>
+              {(current) => (
+                <SearchableSelect
+                  id="company-bank-pick"
+                  value={
+                    (banks.data ?? []).find(
+                      (b) =>
+                        compact(b.iban) === compact(current.iban) &&
+                        compact(b.bic) === compact(current.bic) &&
+                        b.accountHolder.trim() === current.accountHolder.trim() &&
+                        b.bankName.trim() === current.bankName.trim()
+                    )?.id ?? null
+                  }
+                  onChange={(id) => {
+                    const picked = (banks.data ?? []).find((b) => b.id === id)
+                    form.setFieldValue('bank', {
+                      accountHolder: picked?.accountHolder ?? '',
+                      bankName: picked?.bankName ?? '',
+                      iban: picked?.iban ?? '',
+                      bic: picked?.bic ?? ''
+                    })
+                  }}
+                  options={(banks.data ?? []).map((b) => ({
+                    value: b.id,
+                    label: b.bankName || b.accountHolder || b.iban,
+                    hint: [b.bankName ? b.accountHolder : '', b.iban].filter(Boolean).join(' · ')
+                  }))}
+                  noneLabel={t('Keine')}
+                  placeholder={t('Bank wählen…')}
+                  searchPlaceholder={t('Bank suchen…')}
+                />
+              )}
+            </form.Subscribe>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <form.AppField name="bank.accountHolder">
             {(field) => <field.TextField label={t('Kontoinhaber')} />}

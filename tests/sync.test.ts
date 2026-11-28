@@ -342,6 +342,30 @@ describe('two computers', { timeout: 60_000 }, () => {
     b2.sqlite.close()
   })
 
+  it('an unsent edit here is not overwritten by an older edit of the same field', async () => {
+    const a = openComputer('a')
+    const b = openComputer('b')
+    const agency = company(a, 'Agentur')
+    const id = band(a, 'Band', agency)
+    await setUp(a)
+    const b2 = await join_(b)
+    await sync(b2, a)
+
+    as(a, () => a.db.update(schema.band).set({ notes: 'A' }).where(eq(schema.band.id, id)).run())
+    await sync(a)
+    // made after A's edit went out, but not packed yet when B takes A's batch
+    as(b2, () =>
+      b2.db.update(schema.band).set({ notes: 'B neuer' }).where(eq(schema.band.id, id)).run()
+    )
+    await sync(b2, a)
+    for (const c of [a, b2])
+      expect(c.sqlite.prepare('SELECT notes FROM band WHERE id = ?').get(id)).toEqual({
+        notes: 'B neuer'
+      })
+    a.sqlite.close()
+    b2.sqlite.close()
+  })
+
   it('a delete wins over a concurrent edit', async () => {
     const a = openComputer('a')
     const b = openComputer('b')
